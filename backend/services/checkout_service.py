@@ -35,12 +35,23 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     if not session_cart:
         raise Exception("Cart is empty.")
 
-    # Validate all cart items are still available before creating the order
+    # Validate availability and re-price every item from the database; cart prices are display-only.
+    priced_items = []
     for item in session_cart:
         item_id = item.get("id")
         quantity = int(item.get("quantity", 1))
-        if item_id:
-            check_listing_availability(int(item_id), quantity)
+        if not item_id:
+            raise Exception("Your cart contains an invalid item. Please remove it and try again.")
+        if quantity < 1:
+            raise Exception("Item quantities must be at least 1.")
+        title, price = check_listing_availability(int(item_id), quantity)
+        priced_items.append({
+            "id": int(item_id),
+            "name": title,
+            "price": price,
+            "quantity": quantity,
+            "size": item.get("size"),
+        })
 
     first_name = (buyer_details.get("first_name") or "").strip()
     last_name = (buyer_details.get("last_name") or "").strip()
@@ -51,10 +62,7 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     if not all([first_name, last_name, email, contact, meeting_location]):
         raise Exception("All buyer details are required.")
 
-    total_amount = round(
-        sum(float(item.get("price", 0)) * int(item.get("quantity", 1)) for item in session_cart),
-        2,
-    )
+    total_amount = round(sum(item["price"] * item["quantity"] for item in priced_items), 2)
 
     confirmation_number = _generate_confirmation_number()
 
@@ -70,12 +78,12 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     )
 
     order_items = []
-    for item in session_cart:
-        item_id = item.get("id")
-        item_name = item.get("name", "Item")
-        quantity = int(item.get("quantity", 1))
-        price = float(item.get("price", 0))
-        size = item.get("size")
+    for item in priced_items:
+        item_id = item["id"]
+        item_name = item["name"]
+        quantity = item["quantity"]
+        price = item["price"]
+        size = item["size"]
 
         order_item = create_order_item(
             order_id=order["id"],
@@ -96,7 +104,7 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     clear_cart_for_user(user_id)
 
     # Remove purchased listings from the user's wishlist
-    purchased_listing_ids = [item.get("id") for item in session_cart if item.get("id") is not None]
+    purchased_listing_ids = [item["id"] for item in priced_items]
     try:
         remove_purchased_from_wishlist(user_id, purchased_listing_ids)
     except Exception as e:

@@ -545,8 +545,6 @@ async function createListingCard(item, wishlistIds, currentUserId) {
             try {
                 const formData = new FormData();
                 formData.append("item_id", String(listingId));
-                formData.append("item_name", title);
-                formData.append("price", String(numericPrice));
                 formData.append("quantity", String(selectedCount));
                 formData.append("size", selectedSize);
 

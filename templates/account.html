@@ -307,8 +307,6 @@
 
                     const formData = new FormData();
                     formData.append("item_id", String(item.listing_id));
-                    formData.append("item_name", item.title || "Item");
-                    formData.append("price", String(item.price || 0));
                     formData.append("quantity", "1");
                     if (defaultSize) formData.append("size", defaultSize);
 
