@@ -98,32 +98,37 @@ def add_to_cart():
         flash("Please login to add items to your bag.", "error")
         return redirect(url_for('auth.login'))
 
-    item_id = request.form.get('item_id')
-    item_name = request.form.get('item_name')
-    price = request.form.get('price', 0)
-    quantity = request.form.get('quantity', 1)
+    # Price and name come from the listings table, never from the client, so they can't be tampered with.
+    item_id = request.form.get('item_id', type=int)
+    quantity = request.form.get('quantity', type=int) if 'quantity' in request.form else 1
     size = request.form.get('size')
 
-    # Validate listing availability before adding to cart
+    if item_id is None:
+        return jsonify({"error": "A valid item is required."}), 400
+    if quantity is None or quantity < 1:
+        return jsonify({"error": "Quantity must be a whole number of at least 1."}), 400
+
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            "SELECT status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
+            "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
             (item_id,)
         )
         listing = cur.fetchone()
         cur.close()
         conn.close()
-        if not listing:
-            return jsonify({"error": "This item is no longer available."}), 404
-        listing_status, qty_on_hand, is_made_to_order = listing
-        if listing_status == "SOLD_OUT" or (
-            not is_made_to_order and qty_on_hand is not None and int(qty_on_hand) <= 0
-        ):
-            return jsonify({"error": f"{item_name} is sold out and cannot be added to your bag."}), 409
     except Exception as e:
         print(f"DB Error checking listing availability: {e}")
+        return jsonify({"error": "Unable to add item to cart right now."}), 500
+
+    if not listing:
+        return jsonify({"error": "This item is no longer available."}), 404
+    item_name, price, listing_status, qty_on_hand, is_made_to_order = listing
+    if listing_status == "SOLD_OUT" or (
+        not is_made_to_order and qty_on_hand is not None and int(qty_on_hand) <= 0
+    ):
+        return jsonify({"error": f"{item_name} is sold out and cannot be added to your bag."}), 409
 
     # PERSIST TO DATABASE
     try:

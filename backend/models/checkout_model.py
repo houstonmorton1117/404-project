@@ -180,11 +180,12 @@ def clear_cart_for_user(user_id):
 
 
 def check_listing_availability(listing_id, quantity_requested):
-    """Raises if the listing is sold out or has insufficient stock. Skips made-to-order items."""
+    """Raises if the listing is sold out or has insufficient stock (skipped for made-to-order items).
+    Returns (title, price) from the database."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT title, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
+        "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
         (listing_id,)
     )
     row = cur.fetchone()
@@ -192,15 +193,15 @@ def check_listing_availability(listing_id, quantity_requested):
     conn.close()
     if not row:
         raise Exception(f"Item (ID {listing_id}) is no longer available.")
-    title, status, qty_on_hand, is_made_to_order = row
-    if is_made_to_order:
-        return
-    if status == "SOLD_OUT":
-        raise Exception(f'"{title}" is sold out.')
-    if qty_on_hand is not None and int(qty_on_hand) < quantity_requested:
-        raise Exception(
-            f'"{title}" only has {qty_on_hand} in stock (you requested {quantity_requested}).'
-        )
+    title, price, status, qty_on_hand, is_made_to_order = row
+    if not is_made_to_order:
+        if status == "SOLD_OUT":
+            raise Exception(f'"{title}" is sold out.')
+        if qty_on_hand is not None and int(qty_on_hand) < quantity_requested:
+            raise Exception(
+                f'"{title}" only has {qty_on_hand} in stock (you requested {quantity_requested}).'
+            )
+    return title, float(price)
 
 
 def update_listing_size_inventory(listing_id, size, purchased_qty):
