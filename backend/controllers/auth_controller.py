@@ -16,35 +16,36 @@ def login():
         if conn is None:
             return "Database connection failed. <a href='/auth/login'>Try again</a>"
 
-        success, role = service.validate_login(user, pw, conn)
-        # conn.close()
-        
-        if success:
-            session['user'] = user
-            session['role'] = role
+        #try finally loop for login logic - added by Jasmine Mark 9/30/26
+        try:
+            success, role = service.validate_login(user, pw, conn)
 
-            #store user_id in sesion for storefront ownership checks - added by Day E 4/9/26
-            try:
-                cur = conn.cursor()
-                cur.execute("SELECT id FROM users WHERE username = %s", (user,))
-                row = cur.fetchone()
-                if row:
-                    session['user_id'] = row[0] # Store user_id in session
-                    session['cart'] = service.get_user_cart(conn, row[0]) # Load user's cart into session on login
-                    cur.close()
-            except Exception as e:
-                print(f"Error fetching user_id for session: {e}")
-            finally:
-                conn.close()
+            if success:
+                session['user'] = user
+                session['role'] = role
 
-            #return redirect(url_for('auth.listings'))
-            # Redirect based on role - added by David Jackson 3/23/2026
-            if role and role.lower() == 'admin':
-                return redirect(url_for('admin.admin_dashboard'))
-            else:
-                return redirect(url_for('auth.listings'))
-        
-        return "Invalid Credentials. <a href='/auth/login'>Try again</a>"
+                #store user_id in sesion for storefront ownership checks - added by Day E 4/9/26
+                try:
+                    cur = conn.cursor()
+                    cur.execute("SELECT id FROM users WHERE username = %s", (user,))
+                    row = cur.fetchone()
+                    if row:
+                        session['user_id'] = row[0] # Store user_id in session
+                        session['cart'] = service.get_user_cart(conn, row[0]) # Load user's cart into session on login
+                        cur.close()
+                except Exception as e:
+                    print(f"Error fetching user_id for session: {e}")
+
+                #return redirect(url_for('auth.listings'))
+                # Redirect based on role - added by David Jackson 3/23/2026
+                if role and role.lower() == 'admin':
+                    return redirect(url_for('admin.admin_dashboard'))
+                else:
+                    return redirect(url_for('auth.listings'))
+
+            return "Invalid Credentials. <a href='/auth/login'>Try again</a>"
+        finally:
+            conn.close() # always release the connection after success or failure
     
     return render_template('login.html')
 
