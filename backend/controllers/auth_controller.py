@@ -223,12 +223,36 @@ def admin_login():
         user = request.form.get('username')
         pw = request.form.get('password')
 
-        # temporary hardcoded admin login for testing
-        if user == "admin" and pw == "admin123":
-            session['user'] = user
-            session['role'] = 'admin'
-            return redirect(url_for('admin.admin_dashboard'))
+        # Edited by rochele solmon: removed hardcoded admin credentials.
+        # Admin authentication is now checked against the database.
+        conn = get_connection()
+        if conn is None:
+            return "Database connection failed. <a href='/auth/admin-login'>Try again</a>"
 
-        return "Invalid Admin Credentials. <a href='/auth/admin-login'>Try again</a>"
+        try:
+            success, role = service.validate_login(user, pw, conn)
+
+            # Edited by rochele solmon: verify that the authenticated account
+            # has an admin role before granting admin access.
+            if success and role and role.lower() == 'admin':
+                session['user'] = user
+                session['role'] = role
+
+                # Edited by rochele solmon: store the authenticated user's ID
+                # in the server-side session for ownership checks.
+                cur = conn.cursor()
+                cur.execute("SELECT id FROM users WHERE username = %s", (user,))
+                row = cur.fetchone()
+                cur.close()
+
+                if row:
+                    session['user_id'] = row[0]
+
+                return redirect(url_for('admin.admin_dashboard'))
+
+            return "Invalid Admin Credentials. <a href='/auth/admin-login'>Try again</a>"
+
+        finally:
+            conn.close()
 
     return render_template('admin_login.html')
