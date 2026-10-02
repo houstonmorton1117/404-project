@@ -2,6 +2,7 @@
 from flask import Blueprint, request, session, redirect, url_for, render_template, flash, jsonify
 from services.auth_services import AuthService 
 from config.db import get_connection
+from models.checkout_model import check_listing_availability, OutOfStockError
 
 auth_bp = Blueprint('auth', __name__)
 service = AuthService()
@@ -109,27 +110,19 @@ def add_to_cart():
     if quantity is None or quantity < 1:
         return jsonify({"error": "Quantity must be a whole number of at least 1."}), 400
 
+    # Count what's already in the bag so repeated adds can't go past the available stock.
+    already_in_cart = sum(
+        int(i.get('quantity', 1)) for i in session.get('cart', [])
+        if i.get('id') == item_id and i.get('size') == size
+    )
+
     try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
-            (item_id,)
-        )
-        listing = cur.fetchone()
-        cur.close()
-        conn.close()
+        item_name, price, _ = check_listing_availability(item_id, quantity + already_in_cart, size)
+    except OutOfStockError as e:
+        return jsonify({"error": str(e)}), 409
     except Exception as e:
         print(f"DB Error checking listing availability: {e}")
         return jsonify({"error": "Unable to add item to cart right now."}), 500
-
-    if not listing:
-        return jsonify({"error": "This item is no longer available."}), 404
-    item_name, price, listing_status, qty_on_hand, is_made_to_order = listing
-    if listing_status == "SOLD_OUT" or (
-        not is_made_to_order and qty_on_hand is not None and int(qty_on_hand) <= 0
-    ):
-        return jsonify({"error": f"{item_name} is sold out and cannot be added to your bag."}), 409
 
     # PERSIST TO DATABASE
     try:
@@ -144,6 +137,7 @@ def add_to_cart():
         conn.close()
     except Exception as e:
         print(f"DB Error adding to cart: {e}")
+        return jsonify({"error": "Unable to add item to cart right now."}), 500
 
     # Update session for immediate UI feedback
     if 'cart' not in session:

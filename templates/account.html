@@ -318,7 +318,12 @@
                             cartBtn.disabled = false;
                         }, 2000);
                     } else {
-                        throw new Error("Could not add to cart.");
+                        let errorMsg = "Could not add to cart.";
+                        try {
+                            const errData = await res.json();
+                            if (errData && errData.error) errorMsg = errData.error;
+                        } catch (_) {}
+                        throw new Error(errorMsg);
                     }
                 } catch (err) {
                     alert("Unable to add to cart: " + err.message);

@@ -135,6 +135,28 @@ class TestCartPrice(unittest.TestCase):
         )
         self.assertEqual([float(p[0]) for p in prices], [60.00])
 
+    def test_cf09_sold_out_size_is_rejected(self):
+        self._query("UPDATE listing_sizes SET quantity = 0 WHERE listing_id = %s", (self.listing_id,), commit=True)
+        response = self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 1, "size": "M"})
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self._cart_rows(), [])
+
+    def test_cf10_repeated_adds_cannot_exceed_stock(self):
+        self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 4, "size": "M"})
+        response = self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 2, "size": "M"})
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(len(self._cart_rows()), 1)
+
+    def test_cf11_checkout_decrements_stock_and_marks_sold_out(self):
+        self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 5, "size": "M"})
+        response = self.client.post("/api/checkout/complete", json=BUYER_DETAILS)
+        self.assertEqual(response.status_code, 200, response.get_json())
+
+        status, qty = self._query("SELECT status, quantity_on_hand FROM listings WHERE id = %s", (self.listing_id,))[0]
+        self.assertEqual((status, qty), ("SOLD_OUT", 0))
+        response = self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 1, "size": "M"})
+        self.assertEqual(response.status_code, 409)
+
 
 if __name__ == "__main__":
     unittest.main()
