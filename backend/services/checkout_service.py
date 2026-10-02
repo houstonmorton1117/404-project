@@ -35,8 +35,8 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     if not session_cart:
         raise Exception("Cart is empty.")
 
-    # Validate availability and re-price every item from the database; cart prices are display-only.
-    priced_items = []
+    # Each add-to-cart appends a line, so total the quantity per listing/size before checking stock.
+    requested = {}
     for item in session_cart:
         item_id = item.get("id")
         quantity = int(item.get("quantity", 1))
@@ -44,13 +44,25 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
             raise Exception("Your cart contains an invalid item. Please remove it and try again.")
         if quantity < 1:
             raise Exception("Item quantities must be at least 1.")
-        title, price = check_listing_availability(int(item_id), quantity)
+        key = (int(item_id), item.get("size"))
+        requested[key] = requested.get(key, 0) + quantity
+
+    # Validate availability and re-price every item from the database; cart prices are display-only.
+    # This runs before the order is created so a sold-out item stops the checkout.
+    listing_info = {}
+    for (item_id, size), quantity in requested.items():
+        listing_info[item_id] = check_listing_availability(item_id, quantity, size)
+
+    priced_items = []
+    for item in session_cart:
+        title, price, is_made_to_order = listing_info[int(item["id"])]
         priced_items.append({
-            "id": int(item_id),
+            "id": int(item["id"]),
             "name": title,
             "price": price,
-            "quantity": quantity,
+            "quantity": int(item.get("quantity", 1)),
             "size": item.get("size"),
+            "is_made_to_order": is_made_to_order,
         })
 
     first_name = (buyer_details.get("first_name") or "").strip()
@@ -95,11 +107,14 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
         )
         order_items.append(order_item)
 
-        if item_id and size:
+        # Made-to-order listings don't track inventory. Stock was validated above, so a failure here
+        # means another buyer took the last units between the check and now.
+        if size and not item["is_made_to_order"]:
             try:
-                update_listing_size_inventory(int(item_id), size, quantity)
+                update_listing_size_inventory(item_id, size, quantity)
             except Exception as e:
-                print(f"[checkout] inventory update failed for listing {item_id} size {size}: {e}")
+                print(f"[checkout] WARNING inventory update failed for order {confirmation_number}, "
+                      f"listing {item_id} size {size}: {e}")
 
     clear_cart_for_user(user_id)
 

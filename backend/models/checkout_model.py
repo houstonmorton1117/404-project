@@ -179,29 +179,52 @@ def clear_cart_for_user(user_id):
     return {"deleted_count": deleted_count}
 
 
-def check_listing_availability(listing_id, quantity_requested):
-    """Raises if the listing is sold out or has insufficient stock (skipped for made-to-order items).
-    Returns (title, price) from the database."""
+class OutOfStockError(Exception):
+    """Raised when a listing can't be added to a cart or purchased in the requested quantity."""
+
+
+def check_listing_availability(listing_id, quantity_requested, size=None):
+    """Raises OutOfStockError if the listing (or the chosen size) is sold out or has insufficient
+    stock (skipped for made-to-order items). Returns (title, price, is_made_to_order) from the database."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
-        (listing_id,)
-    )
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    if not row:
-        raise Exception(f"Item (ID {listing_id}) is no longer available.")
-    title, price, status, qty_on_hand, is_made_to_order = row
-    if not is_made_to_order:
-        if status == "SOLD_OUT":
-            raise Exception(f'"{title}" is sold out.')
-        if qty_on_hand is not None and int(qty_on_hand) < quantity_requested:
-            raise Exception(
-                f'"{title}" only has {qty_on_hand} in stock (you requested {quantity_requested}).'
-            )
-    return title, float(price)
+    try:
+        cur.execute(
+            "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
+            (listing_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise OutOfStockError(f"Item (ID {listing_id}) is no longer available.")
+        title, price, status, qty_on_hand, is_made_to_order = row
+        if status not in ("ACTIVE", "SOLD_OUT"):
+            raise OutOfStockError(f'"{title}" is no longer available.')
+        if not is_made_to_order:
+            if status == "SOLD_OUT" or (qty_on_hand is not None and int(qty_on_hand) <= 0):
+                raise OutOfStockError(f'"{title}" is sold out.')
+            if qty_on_hand is not None and int(qty_on_hand) < quantity_requested:
+                raise OutOfStockError(
+                    f'"{title}" only has {qty_on_hand} in stock (you requested {quantity_requested}).'
+                )
+
+            # Stock is tracked per size, so a listing with stock left can still have a sold-out size.
+            cur.execute("SELECT size, quantity FROM listing_sizes WHERE listing_id = %s", (listing_id,))
+            size_stock = {s: int(q or 0) for s, q in cur.fetchall()}
+            if size_stock:
+                if not size:
+                    raise OutOfStockError(f'Please choose a size for "{title}".')
+                available = size_stock.get(size, 0)
+                if available <= 0:
+                    raise OutOfStockError(f'"{title}" in size {size} is sold out.')
+                if available < quantity_requested:
+                    raise OutOfStockError(
+                        f'"{title}" in size {size} only has {available} in stock '
+                        f'(you requested {quantity_requested}).'
+                    )
+    finally:
+        cur.close()
+        conn.close()
+    return title, float(price), bool(is_made_to_order)
 
 
 def update_listing_size_inventory(listing_id, size, purchased_qty):
