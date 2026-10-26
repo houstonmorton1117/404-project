@@ -38,7 +38,7 @@ Start of Code w/ comments
 <!-- stores info that isnt actually shown on the page itself. Includes metadata, browser tab title, and links to the css file -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <!-- ensures the screensize is consistent on different types of devices -->
-  <title>The Vault | Storefronts</title> <!-- Simple, this is the Title of the page -->
+  <title>Showtime | Storefronts</title> <!-- Simple, this is the Title of the page -->
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/storefront.css') }}" /> <!-- Updated by Day E 3/22/26 -->
 </head> <!-- end of head -->
@@ -92,18 +92,18 @@ Start of Code w/ comments
 
   <!-- Main navigation -->
   <div class="nav-section">
-    <div class="nav-item">Explore Brands <span>→</span></div>
-    <div class="nav-item">All Categories <span>→</span></div>
-    <div class="nav-item">New Drops <span>→</span></div>
-    <div class="nav-item">Hot! <span>→</span></div>
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">Explore Brands <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">All Categories <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">New Drops <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">Hot! <span>→</span></a>
   </div>
 
   <!-- extras -->
   <div class="nav-section more">
-    <p class="nav-heading">More from The Vault</p>
-    <div class="nav-subitem">About</div>
-    <a href="/returns" class="nav-subitem">Returns</a>
-    <div class="nav-subitem">Sitemap</div>
+    <p class="nav-heading">More from Showtime</p>
+    <a href="{{ url_for('storefront_pages_bp.about_page') }}" class="nav-subitem">About</a>
+    <a href="{{ url_for('returns_bp.returns_page') }}" class="nav-subitem">Returns</a>
+    <a href="{{ url_for('storefront_pages_bp.sitemap_page') }}" class="nav-subitem">Sitemap</a>
   </div>
 
 </aside>
@@ -237,7 +237,7 @@ Updated nav bar
   <section class="logo-search-section">
 
     <h1 class="brand-title">
-      <span class="gold">The</span> Vault
+      <span class="gold">Show</span>time
     </h1>
 
     <p class="brand-subtitle">Fashion Marketplace</p>
@@ -249,7 +249,7 @@ Updated nav bar
         type="text"
         id="searchInput"
         class="search-input"
-        placeholder="Explore The Vault"
+        placeholder="Explore Showtime"
       />
     </div>
   </section>

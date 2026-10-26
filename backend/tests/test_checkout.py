@@ -20,6 +20,10 @@ BUYER_DETAILS = {
     "email": "buyer@hamptonu.edu",
     "contact": "555-0100",
     "meeting_location": "Library",
+    "cardholder_name": "Test Buyer",
+    "card_number": "4242424242424242",
+    "card_expiry": "12/30",
+    "cvv": "123",
 }
 
 

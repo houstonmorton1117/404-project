@@ -27,10 +27,7 @@ html, body {
 }
 
 body {
-    background:
-        linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)),
-        url("/static/images/background.png") no-repeat center center fixed;
-    background-size: cover;
+    background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
     color: white;
     font-family: Arial, Helvetica, sans-serif;
     min-height: 100vh;
@@ -52,7 +49,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(0,0,0,0.55);
+    background: rgba(10, 24, 48,0.55);
     border: 1px solid rgba(212,175,55,0.5);
     border-radius: 999px;
     color: #d4af37;
@@ -87,7 +84,7 @@ body {
 .storefront-banner {
     width: 100%;
     min-height: 260px;
-    background: rgba(0, 0, 0, 0.84);
+    background: rgba(10, 24, 48, 0.84);
     border: 1px solid #d4af37;
     border-radius: 8px;
     position: relative;
@@ -149,7 +146,7 @@ body {
 .storefront-logo p {
     font-size: 2rem;
     font-weight: 800;
-    color: black;
+    color: #0a1830;
 }
 
 
@@ -174,7 +171,7 @@ body {
 }
 
 .listing-card {
-    background: rgba(0, 0, 0, 0.84);
+    background: rgba(10, 24, 48, 0.84);
     border: 1px solid rgba(255, 255, 255, 0.7);
     border-radius: 26px;
     padding: 1rem;
@@ -225,7 +222,7 @@ body {
     height: 34px;
     border: 1px solid rgba(255, 255, 255, 0.28);
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(10, 24, 48, 0.6);
     color: #f3f3f3;
     font-size: 1.15rem;
     display: inline-flex;
@@ -277,7 +274,7 @@ body {
     position: absolute;
     top: 0.7rem;
     right: 0.8rem;
-    background: rgba(0, 0, 0, 0.62);
+    background: rgba(10, 24, 48, 0.62);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 999px;
     color: #f2f2f2;
@@ -400,14 +397,14 @@ body {
     font-size: 0.9rem;
     font-weight: 700;
     line-height: 1.25;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
+    box-shadow: 0 8px 22px rgba(10, 24, 48, 0.38);
     opacity: 1;
     transform: translateY(0);
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .cart-toast.success {
-    background: #111111;
+    background: #102447;
     color: #f3ce73;
     border: 1px solid #b8860b;
 }
@@ -451,13 +448,13 @@ body {
 .wishlist-lock-btn.active {
     background: #ffffff;
     border-color: #ffffff;
-    color: #111111;
+    color: #102447;
 }
 
 .listing-lightbox {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.86);
+    background: rgba(10, 24, 48, 0.86);
     display: none;
     align-items: center;
     justify-content: center;
@@ -499,7 +496,7 @@ body {
 .lightbox-close,
 .lightbox-nav {
     border: 1px solid rgba(255, 255, 255, 0.22);
-    background: rgba(0, 0, 0, 0.58);
+    background: rgba(10, 24, 48, 0.58);
     color: #ffffff;
     cursor: pointer;
 }

@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Vault | Portal</title>
+    <title>Showtime | Portal</title>
     <style>
         /* Index.html was made on 3/19/2026 by Ryan Grimes */
 
@@ -13,7 +13,7 @@
         /* Locks the screen */
         body, html {
             margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #000; overflow: hidden;
+            background: #0a1830; overflow: hidden;
             font-family: 'Segoe UI', sans-serif;
             display: flex; justify-content: center; align-items: center;
         }
@@ -23,8 +23,7 @@
             position: relative;
             width: 100vw;
             height: 100vh;
-            background: url('/static/images/background.png') no-repeat center center;
-            background-size: cover;
+            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -64,7 +63,7 @@
             font-weight: bold; 
             margin: 0; 
             line-height: 0.8;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.9);
+            text-shadow: 0 4px 15px rgba(10, 24, 48,0.9);
         }
 
         .sub-title {
@@ -114,12 +113,12 @@
             width: 100%; 
             height: 8px; 
             accent-color: #B8860B; 
-            background: #333; 
+            background: #2a4570; 
             border-radius: 10px; 
         }
 
         /* For centered progress styling */
-        progress::-webkit-progress-bar { background-color: #333; border-radius: 10px; }
+        progress::-webkit-progress-bar { background-color: #2a4570; border-radius: 10px; }
         progress::-webkit-progress-value { background-color: #B8860B; border-radius: 10px; }
 
         .footer-text { 
@@ -144,12 +143,8 @@
     <div class="vault-wrapper">
         <div class="portal-header">YOU HAVE ARRIVED AT THE PORTAL TO...</div>
 
-        <div class="logo-container">
-            <img src="/static/images/logo.png" alt="Vault Logo">
-        </div>
-
         <div class="bottom-section">
-            <h1 class="main-title">THE VAULT</h1>
+            <h1 class="main-title">SHOWTIME</h1>
             <div class="sub-title">FASHION MARKETPLACE</div>
 
             <div class="button-row">

@@ -17,6 +17,7 @@ from models.checkout_model import (
     remove_purchased_from_wishlist,
     check_listing_availability,
 )
+from utils.payments import process_simulated_payment, PaymentError
 
 
 def _generate_confirmation_number():
@@ -76,6 +77,19 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
 
     total_amount = round(sum(item["price"] * item["quantity"] for item in priced_items), 2)
 
+    # Payment is processed (simulated) before the order is created, so a
+    # declined/invalid card never results in an order record.
+    try:
+        payment_result = process_simulated_payment(
+            card_number=buyer_details.get("card_number"),
+            card_expiry=buyer_details.get("card_expiry"),
+            cvv=buyer_details.get("cvv"),
+            cardholder_name=buyer_details.get("cardholder_name"),
+            amount=total_amount,
+        )
+    except PaymentError as e:
+        raise Exception(str(e))
+
     confirmation_number = _generate_confirmation_number()
 
     order = create_order(
@@ -87,6 +101,9 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
         buyer_contact=contact,
         buyer_meeting_location=meeting_location,
         total_amount=total_amount,
+        card_last4=payment_result["card_last4"],
+        transaction_ref=payment_result["transaction_ref"],
+        payment_status=payment_result["status"],
     )
 
     order_items = []
@@ -130,6 +147,11 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
         "order": order,
         "order_items": order_items,
         "total_amount": total_amount,
+        "payment": {
+            "status": payment_result["status"],
+            "card_last4": payment_result["card_last4"],
+            "transaction_ref": payment_result["transaction_ref"],
+        },
     }
 
 

@@ -1,4 +1,9 @@
 # By Elali McNair 4/19/26
+# Updated 10/26 - rewritten to log in via the real session instead of
+# setting an X-User-Id header directly. Setting that header alone used to
+# be enough to authenticate as any user id -- a broken access control bug
+# fixed this iteration -- so these tests now create their own user and
+# storefront and log in for real, matching how the app is actually used.
 import io
 import os
 import sys
@@ -15,61 +20,46 @@ for path in (PROJECT_ROOT, BACKEND_ROOT):
 from app import create_app
 from backend.config.db import get_connection
 
+PASSWORD = "pw12345"
+
 
 class TestCreateListingFeature(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = create_app()
         cls.app.config["TESTING"] = True
-        cls.client = cls.app.test_client()
-        cls.storefront_id, cls.user_id = cls._resolve_storefront_owner()
-
-        if cls.storefront_id is None or cls.user_id is None:
-            raise unittest.SkipTest("No storefront owner data available for create listing tests.")
-
-    @staticmethod
-    def _resolve_storefront_owner():
-        conn = get_connection()
-        if conn is None:
-            return None, None
-
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                "SELECT id, owner_id FROM storefronts WHERE is_active = TRUE ORDER BY id LIMIT 1;"
-            )
-            row = cur.fetchone()
-            if not row:
-                return None, None
-            return row[0], row[1]
-        finally:
-            cur.close()
-            conn.close()
+        if get_connection() is None:
+            raise unittest.SkipTest("Database not available.")
 
     def setUp(self):
+        tag = uuid.uuid4().hex[:8]
+        self.username = f"cl_owner_{tag}"
+        self.client = self.app.test_client()
         self.created_listing_ids = []
 
+        self.client.post("/auth/signup", data={
+            "username": self.username, "password": PASSWORD, "email": f"{self.username}@hamptonu.edu",
+        })
+        self.user_id = self._query("SELECT id FROM users WHERE username = %s", (self.username,))[0][0]
+        self.storefront_id = self._query(
+            "INSERT INTO storefronts (owner_id, brand_name) VALUES (%s, %s) RETURNING id",
+            (self.user_id, f"CL Store {tag}"), commit=True,
+        )[0][0]
+
+        self.client.post("/auth/login", data={"username": self.username, "password": PASSWORD})
+
     def tearDown(self):
-        self._cleanup_created_listings()
+        self._query("DELETE FROM users WHERE username = %s", (self.username,), commit=True)
 
-    def _auth_headers(self):
-        return {"X-User-Id": str(self.user_id)}
-
-    def _cleanup_created_listings(self):
-        if not self.created_listing_ids:
-            return
-
+    def _query(self, sql, params=(), commit=False):
         conn = get_connection()
-        if conn is None:
-            return
-
         cur = conn.cursor()
         try:
-            cur.execute(
-                "DELETE FROM listings WHERE id = ANY(%s);",
-                (self.created_listing_ids,),
-            )
-            conn.commit()
+            cur.execute(sql, params)
+            rows = cur.fetchall() if cur.description else []
+            if commit:
+                conn.commit()
+            return rows
         finally:
             cur.close()
             conn.close()
@@ -88,9 +78,11 @@ class TestCreateListingFeature(unittest.TestCase):
                 "sizes_available": '["M", "L"]',
                 "listing_image": (io.BytesIO(b"fake image bytes"), "test_listing.png"),
             },
-            headers=self._auth_headers(),
             content_type="multipart/form-data",
         )
+
+        if response.status_code == 500 and "S3" in response.get_data(as_text=True):
+            self.skipTest("AWS S3 isn't configured in this environment (no AWS_S3_BUCKET in .env).")
 
         self.assertEqual(response.status_code, 201, response.get_data(as_text=True))
         payload = response.get_json()
@@ -123,14 +115,14 @@ class TestCreateListingFeature(unittest.TestCase):
                 "status": "ACTIVE",
                 "sizes_available": '["S"]',
             },
-            headers=self._auth_headers(),
             content_type="multipart/form-data",
         )
 
         self.assertEqual(response.status_code, 400, response.get_data(as_text=True))
-        self.assertIn("listing_image is required", response.get_data(as_text=True))
+        self.assertIn("listing image is required", response.get_data(as_text=True).lower())
 
     def test_create_listing_requires_authentication(self):
+        self.client.get("/auth/logout")
         response = self.client.post(
             f"/api/storefronts/{self.storefront_id}/listings",
             json={
@@ -143,6 +135,25 @@ class TestCreateListingFeature(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401, response.get_data(as_text=True))
         self.assertIn("Unauthorized", response.get_data(as_text=True))
+
+    def test_forged_header_cannot_impersonate_another_owner(self):
+        """A logged-out request can't authenticate just by setting X-User-Id."""
+        self.client.get("/auth/logout")
+        response = self.client.post(
+            "/api/listings/create",
+            data={
+                "title": "Impersonated Listing",
+                "quantity_on_hand": "1",
+                "price": "10.00",
+                "fulfillment_type": "IN_STOCK",
+                "status": "ACTIVE",
+                "sizes_available": '["S"]',
+                "listing_image": (io.BytesIO(b"fake image bytes"), "test.png"),
+            },
+            headers={"X-User-Id": str(self.user_id), "X-User-Role": "user"},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 401, response.get_data(as_text=True))
 
 
 if __name__ == "__main__":

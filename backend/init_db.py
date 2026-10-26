@@ -308,6 +308,14 @@ def create_vault_tables():
         """
         cur.execute(create_orders_table)
 
+        # Simulated in-platform payment fields - added for I3 payments feature.
+        # Only the last 4 digits of the card are ever stored; the full card
+        # number and CVV are validated in memory during checkout and discarded.
+        cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) DEFAULT 'CARD';")
+        cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS card_last4 VARCHAR(4);")
+        cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'PAID';")
+        cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS transaction_ref VARCHAR(40);")
+
         # ________________________________________________________
         # ORDER ITEMS TABLE (Items per order)
         # Added by Day Ekoi 4/22/26

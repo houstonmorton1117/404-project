@@ -41,8 +41,15 @@ def login():
                 # Redirect based on role - added by David Jackson 3/23/2026
                 if role and role.lower() == 'admin':
                     return redirect(url_for('admin.admin_dashboard'))
-                else:
-                    return redirect(url_for('auth.listings'))
+
+                # If the user got sent here from another page (e.g. clicked
+                # Checkout while logged out), return them there instead of
+                # always dropping them on the listings page. Only a relative
+                # in-site path is honored, to avoid an open-redirect.
+                next_url = request.form.get('next')
+                if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+                    return redirect(next_url)
+                return redirect(url_for('auth.listings'))
 
             return "Invalid Credentials. <a href='/auth/login'>Try again</a>"
         finally:
@@ -131,7 +138,9 @@ def add_to_cart():
         cur.execute("""
             INSERT INTO cart_items (user_id, item_id, item_name, price, quantity, size)
             VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
         """, (session['user_id'], item_id, item_name, price, quantity, size))
+        cart_item_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
@@ -142,8 +151,8 @@ def add_to_cart():
     # Update session for immediate UI feedback
     if 'cart' not in session:
         session['cart'] = []
-    
-    cart_item = {'id': item_id, 'name': item_name, 'price': float(price), 'quantity': int(quantity), 'size': size}
+
+    cart_item = {'id': item_id, 'name': item_name, 'price': float(price), 'quantity': int(quantity), 'size': size, 'cart_item_id': cart_item_id}
     temp_cart = session['cart']
     temp_cart.append(cart_item)
     session['cart'] = temp_cart
@@ -160,18 +169,16 @@ def remove_from_cart(index):
             removed_item = temp_cart.pop(index)
             
             # REMOVE FROM DATABASE
+            # Deletes by the cart row's own primary key (not name+size, which could
+            # match the wrong row when the same item/size was added as two separate
+            # cart rows). user_id is still checked so a user can only delete their own.
             try:
                 conn = get_connection()
                 cur = conn.cursor()
-                # We delete one instance of this item for this user
                 cur.execute("""
-                    DELETE FROM cart_items 
-                    WHERE id = (
-                        SELECT id FROM cart_items 
-                        WHERE user_id = %s AND item_name = %s AND size = %s
-                        LIMIT 1
-                    )
-                """, (session['user_id'], removed_item['name'], removed_item['size']))
+                    DELETE FROM cart_items
+                    WHERE id = %s AND user_id = %s
+                """, (removed_item.get('cart_item_id'), session['user_id']))
                 conn.commit()
                 cur.close()
                 conn.close()

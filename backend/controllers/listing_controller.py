@@ -19,7 +19,7 @@ This layer should stay thin:
 All system rules + permission checks happen in services/listing_service.py.
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 
 from services.listing_service import (
     create_listing_service,
@@ -48,23 +48,20 @@ listing_bp = Blueprint("listing_bp", __name__, url_prefix="/api")
 
 def get_current_user():
     """
-    Temporary user identity method (until real auth is connected):
-    Read user from headers.
-
-    Required header for protected routes:
-      X-User-Id: <int>
-
+    Reads the authenticated user from the server-side session (set at login
+    in auth_controller.py), not from client-supplied headers. A previous
+    version trusted an X-User-Id / X-User-Role header pair directly, which
+    let any request impersonate any user (including admin) just by setting
+    those headers -- the ownership checks in listing_service.py were real,
+    but the identity they checked against was attacker-controlled.
     """
-    user_id = request.headers.get("X-User-Id")
-    role = request.headers.get("X-User-Role", "user")
+    user_id = session.get("user_id")
+    role = session.get("role", "user")
 
     if not user_id:
         return None
 
-    try:
-        return {"id": int(user_id), "role": role}
-    except Exception:
-        return None
+    return {"id": int(user_id), "role": role}
 
 
 # __________________________________________________________
