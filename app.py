@@ -20,7 +20,7 @@ def create_app():
                 template_folder='templates',
                 static_folder='static')
 
-    app.secret_key = 'vault_secure_key_2026'
+    app.secret_key = os.environ['SECRET_KEY']
 
     # Run DB migrations on every startup so new columns are always present
     try:
