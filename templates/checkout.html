@@ -8,7 +8,7 @@ Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error displ
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout | The Vault</title>
+    <title>Checkout | Showtime</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">
 </head>
 <body>
@@ -19,7 +19,7 @@ Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error displ
             </a>
 
             <div class="brand-block">
-                <h1 class="brand-title"><span class="gold">The</span> Vault</h1>
+                <h1 class="brand-title"><span class="gold">Show</span>time</h1>
                 <p class="brand-subtitle">Finalize Purchase</p>
             </div>
         </div>
@@ -50,6 +50,31 @@ Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error displ
                     <label>Meeting Location</label>
                     <textarea id="meetingLocation" placeholder="e.g. Student Center, 1st Floor" required></textarea>
                 </div>
+            </form>
+        </section>
+
+        <section class="checkout-form-container form-card">
+            <h3 class="section-label">Payment</h3>
+            <form id="paymentForm">
+                <div class="input-group">
+                    <label>Cardholder Name</label>
+                    <input type="text" id="cardholderName" placeholder="Name on card" required>
+                </div>
+                <div class="input-group">
+                    <label>Card Number</label>
+                    <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" inputmode="numeric" maxlength="19" required>
+                </div>
+                <div class="input-group" style="display:flex; gap:12px;">
+                    <div style="flex:1;">
+                        <label>Expiration (MM/YY)</label>
+                        <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" required>
+                    </div>
+                    <div style="flex:1;">
+                        <label>CVV</label>
+                        <input type="text" id="cardCvv" placeholder="123" inputmode="numeric" maxlength="4" required>
+                    </div>
+                </div>
+                <p class="helper-text" style="margin-top:8px; font-size:0.8rem;">Payments are processed through Showtime. No real card is charged in this environment.</p>
             </form>
         </section>
 

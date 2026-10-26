@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Vault | Secure Login</title>
+    <title>Showtime | Secure Login</title>
     <style>
         body, html {
             margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #000; overflow: hidden;
+            background: #0a1830; overflow: hidden;
             font-family: 'Segoe UI', sans-serif;
             display: flex; justify-content: center; align-items: center;
         }
@@ -16,14 +16,13 @@
         .vault-wrapper {
             position: relative;
             width: 100vw; height: 100vh;
-            background: url('/static/images/background.png') no-repeat center center;
-            background-size: cover;
+            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
             display: flex; justify-content: center; align-items: center;
         }
 
         /* Metallic Glass Form Panel */
         .auth-card {
-            background: rgba(0, 0, 0, 0.88);
+            background: rgba(10, 24, 48, 0.88);
             border: 1px solid #B8860B;
             padding: 45px;
             width: 360px;
@@ -75,7 +74,7 @@
             background: linear-gradient(135deg, #B8860B, #9A7107);
             border: none;
             padding: 16px;
-            color: black;
+            color: #0a1830;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 3px;
@@ -121,7 +120,7 @@
 
         .admin-btn:hover {
             background: #B8860B;
-            color: black;
+            color: #0a1830;
             box-shadow: 0 0 10px rgba(184, 134, 11, 0.5);
         }
 
@@ -132,6 +131,7 @@
         <div class="auth-card">
             <h2>DECRYPT ACCESS</h2>
             <form action="{{ url_for('auth.login') }}" method="POST">
+                <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
                 <div class="input-group">
                     <label>Identity (Username)</label>
                     <input type="text" name="username" required placeholder="User_01" autofocus>

@@ -6,17 +6,21 @@ from db import get_connection
 
 
 def create_order(user_id, confirmation_number, buyer_first_name, buyer_last_name,
-                 buyer_email, buyer_contact, buyer_meeting_location, total_amount):
+                 buyer_email, buyer_contact, buyer_meeting_location, total_amount,
+                 card_last4=None, transaction_ref=None, payment_status='PAID', payment_method='CARD'):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO orders (user_id, confirmation_number, buyer_first_name, buyer_last_name,
-                            buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'SUBMITTED')
+                            buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status,
+                            payment_method, card_last4, payment_status, transaction_ref)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'SUBMITTED', %s, %s, %s, %s)
         RETURNING id, user_id, confirmation_number, buyer_first_name, buyer_last_name,
-                  buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status, created_at;
+                  buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status, created_at,
+                  payment_method, card_last4, payment_status, transaction_ref;
     """, (user_id, confirmation_number, buyer_first_name, buyer_last_name,
-          buyer_email, buyer_contact, buyer_meeting_location, total_amount))
+          buyer_email, buyer_contact, buyer_meeting_location, total_amount,
+          payment_method, card_last4, payment_status, transaction_ref))
     row = cur.fetchone()
     conn.commit()
     cur.close()
@@ -33,6 +37,10 @@ def create_order(user_id, confirmation_number, buyer_first_name, buyer_last_name
         "total_amount": float(row[8]),
         "order_status": row[9],
         "created_at": str(row[10]),
+        "payment_method": row[11],
+        "card_last4": row[12],
+        "payment_status": row[13],
+        "transaction_ref": row[14],
     }
 
 
@@ -64,7 +72,8 @@ def get_order_by_confirmation(confirmation_number):
     cur = conn.cursor()
     cur.execute("""
         SELECT id, user_id, confirmation_number, buyer_first_name, buyer_last_name,
-               buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status, created_at
+               buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status, created_at,
+               payment_method, card_last4, payment_status, transaction_ref
         FROM orders
         WHERE confirmation_number = %s;
     """, (confirmation_number,))
@@ -85,6 +94,10 @@ def get_order_by_confirmation(confirmation_number):
         "total_amount": float(row[8]),
         "order_status": row[9],
         "created_at": str(row[10]),
+        "payment_method": row[11],
+        "card_last4": row[12],
+        "payment_status": row[13],
+        "transaction_ref": row[14],
     }
 
 
@@ -228,15 +241,29 @@ def check_listing_availability(listing_id, quantity_requested, size=None):
 
 
 def update_listing_size_inventory(listing_id, size, purchased_qty):
-    """Decrements per-size inventory and syncs listing quantity_on_hand after purchase."""
+    """Decrements per-size inventory and syncs listing quantity_on_hand after purchase.
+
+    The decrement is done as a single atomic UPDATE guarded by
+    `quantity >= purchased_qty` in the WHERE clause, instead of a separate
+    SELECT-then-UPDATE. Two checkouts for the last item racing each other
+    could otherwise both pass a SELECT-based check before either commits,
+    letting both orders succeed against stock that only covers one of them.
+    The UPDATE's rowcount tells us whether this specific request actually
+    had enough stock at the moment it ran.
+    """
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT quantity FROM listing_sizes WHERE listing_id = %s AND size = %s",
-        (listing_id, size)
-    )
-    size_row = cur.fetchone()
-    if size_row is None or int(size_row[0]) < purchased_qty:
+    cur.execute("""
+        UPDATE listing_sizes
+        SET quantity = quantity - %s
+        WHERE listing_id = %s AND size = %s AND quantity >= %s;
+    """, (purchased_qty, listing_id, size, purchased_qty))
+    if cur.rowcount == 0:
+        cur.execute(
+            "SELECT quantity FROM listing_sizes WHERE listing_id = %s AND size = %s",
+            (listing_id, size)
+        )
+        size_row = cur.fetchone()
         cur.close()
         conn.close()
         available = int(size_row[0]) if size_row else 0
@@ -244,11 +271,6 @@ def update_listing_size_inventory(listing_id, size, purchased_qty):
             f"Insufficient stock for listing {listing_id} size '{size}': "
             f"requested {purchased_qty}, available {available}."
         )
-    cur.execute("""
-        UPDATE listing_sizes
-        SET quantity = GREATEST(0, quantity - %s)
-        WHERE listing_id = %s AND size = %s;
-    """, (purchased_qty, listing_id, size))
     cur.execute("""
         SELECT COALESCE(SUM(quantity), 0) FROM listing_sizes WHERE listing_id = %s;
     """, (listing_id,))

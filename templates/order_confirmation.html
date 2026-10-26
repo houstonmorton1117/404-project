@@ -8,14 +8,12 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmed | The Vault</title>
+    <title>Order Confirmed | Showtime</title>
     <style>
         :root { --gold: #B8860B; --gold-light: #d4af37; }
 
         body {
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
-                        url("/static/images/background.png") no-repeat center center fixed;
-            background-size: cover;
+            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
             color: white;
             font-family: 'Segoe UI', Arial, sans-serif;
             margin: 0;
@@ -29,7 +27,7 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
         }
 
         .conf-card {
-            background: rgba(0, 0, 0, 0.88);
+            background: rgba(10, 24, 48, 0.88);
             border: 1px solid rgba(184, 134, 11, 0.6);
             box-shadow: 0 0 30px rgba(184, 134, 11, 0.15);
             padding: 36px;
@@ -157,7 +155,7 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
             transition: 0.2s;
         }
 
-        .btn-primary { background: linear-gradient(145deg, #B8860B, #8B6508); color: black; }
+        .btn-primary { background: linear-gradient(145deg, #B8860B, #8B6508); color: #0a1830; }
         .btn-primary:hover { filter: brightness(1.2); }
 
         .btn-secondary {
@@ -233,7 +231,7 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
         card.innerHTML = `
             <div class="conf-header">
                 <div class="success-badge">&#10003; Order Submitted</div>
-                <h1><span>The</span> Vault — Thank You!</h1>
+                <h1>Showtime — Thank You!</h1>
                 <p class="conf-number">Confirmation: <strong>${order.confirmation_number}</strong></p>
             </div>
 
@@ -273,6 +271,24 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
                     <div class="detail-item">
                         <strong>Meeting Location</strong>
                         <span>${order.buyer_meeting_location}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Payment</h2>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <strong>Status</strong>
+                        <span>${order.payment_status || "PAID"}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Card</strong>
+                        <span>${order.card_last4 ? `•••• ${order.card_last4}` : "N/A"}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Transaction Ref</strong>
+                        <span>${order.transaction_ref || "N/A"}</span>
                     </div>
                 </div>
             </div>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About | Showtime</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/create_storefront.css') }}">
+    <style>
+        .back-row {
+            width: min(1200px, 92%);
+            margin: 0 auto 0.8rem;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(10,24,48,0.55);
+            border: 1px solid rgba(212,175,55,0.5);
+            border-radius: 999px;
+            color: #d4af37;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .back-btn:hover {
+            background: rgba(212,175,55,0.15);
+            color: #f0cc55;
+        }
+        .about-body {
+            width: min(760px, 92%);
+            margin: 1.5rem auto 3rem;
+            color: #e9e3d4;
+            line-height: 1.7;
+        }
+        .about-body p { margin: 0 0 1rem; }
+        .about-body h3 {
+            color: #f0cc55;
+            font-size: 1.1rem;
+            margin: 2rem 0 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .about-body ul { margin: 0 0 1rem; padding-left: 1.4rem; }
+        .about-body li { margin: 0.3rem 0; }
+    </style>
+</head>
+<body>
+    <div class="back-row">
+        <button class="back-btn" id="backBtn">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Back
+        </button>
+    </div>
+
+    <header class="create-header">
+        <div class="brand-block">
+            <h1 class="brand-title"><span class="gold">Show</span>time</h1>
+            <p class="brand-subtitle">Fashion Marketplace</p>
+        </div>
+        <h2 class="page-title">About</h2>
+    </header>
+
+    <main class="about-body">
+        <p>Showtime is a cloud-hosted campus marketplace built for Hampton University students. It lets student brand owners open a storefront, publish clothing listings, and manage inventory, while other students browse, wishlist, and buy directly from them.</p>
+
+        <h3>How it works</h3>
+        <p>Every student signs up with a Hampton email. From there, anyone can browse storefronts and shop. If you create a storefront of your own, you gain seller tools on top of that same account &mdash; there's no separate buyer/seller signup.</p>
+
+        <h3>What you can do here</h3>
+        <ul>
+            <li>Browse student-run storefronts and their listings</li>
+            <li>Save items to a wishlist</li>
+            <li>Add items to your bag and check out</li>
+            <li>Create your own storefront and publish listings</li>
+            <li>Request a return on a completed order</li>
+        </ul>
+
+        <h3>Checkout &amp; exchange</h3>
+        <p>Showtime uses an in-person exchange model &mdash; no payments are processed through the site. At checkout you provide contact details and a meeting location so the buyer and seller can complete the exchange directly.</p>
+    </main>
+
+    <script>
+        document.getElementById("backBtn").addEventListener("click", () => {
+            window.location.href = "/storefronts";
+        });
+    </script>
+</body>
+</html>

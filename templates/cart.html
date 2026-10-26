@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Vault | Your Bag</title>
+    <title>Showtime | Your Bag</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/storefront.css') }}">
     <style>
-        :root { --gold: #B8860B; --dark-bg: #121212; }
+        :root { --gold: #B8860B; --dark-bg: #0a1830; }
         
-        body { background-color: #000; color: white; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #0a1830; color: white; font-family: 'Segoe UI', sans-serif; }
 
         .cart-container {
             max-width: 900px; margin: 50px auto; padding: 30px;
@@ -24,7 +24,7 @@
         .cart-header h1 { margin: 0; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; }
 
         .cart-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        .cart-table th { text-align: left; color: var(--gold); border-bottom: 1px solid #333; padding: 15px; text-transform: uppercase; font-size: 0.8rem; }
+        .cart-table th { text-align: left; color: var(--gold); border-bottom: 1px solid #2a4570; padding: 15px; text-transform: uppercase; font-size: 0.8rem; }
         .cart-table td { padding: 15px; border-bottom: 1px solid #222; }
 
         .item-info h4 { margin: 0; color: white; }
@@ -33,14 +33,14 @@
         .price-col { font-family: 'Courier New', monospace; color: var(--gold); }
 
         .cart-summary {
-            background: #1a1a1a; padding: 20px; border: 1px solid #333;
+            background: #16305c; padding: 20px; border: 1px solid #2a4570;
             text-align: right;
         }
 
         .total-row { font-size: 1.5rem; color: var(--gold); font-weight: bold; margin-bottom: 20px; }
 
         .checkout-btn {
-            background: var(--gold); color: black; border: none; padding: 15px 40px;
+            background: var(--gold); color: #0a1830; border: none; padding: 15px 40px;
             font-weight: bold; text-transform: uppercase; cursor: pointer;
             transition: 0.3s; letter-spacing: 2px;
         }
@@ -118,7 +118,7 @@
         </div>
     {% else %}
         <div class="empty-msg">
-            <p>Your vault bag is currently empty.</p>
+            <p>Your bag is currently empty.</p>
             <a href="{{ url_for('auth.listings') }}" class="back-link">Browse Storefronts</a>
         </div>
     {% endif %}

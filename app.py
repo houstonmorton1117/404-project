@@ -1,6 +1,6 @@
 import sys
 import os
-from flask import Flask, render_template, redirect, url_for, session
+from flask import Flask, render_template, redirect, url_for, session, request
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))) # Updated 3/19/2026 by Ryan Grimes
 
@@ -58,7 +58,7 @@ def create_app():
     @app.route('/checkout')
     def checkout():
         if not session.get("user"):
-            return redirect(url_for("auth.login"))
+            return redirect(url_for("auth.login", next=request.path))
         return render_template('checkout.html')
 
     # Route to the Order Confirmation page - Added 4/22/2026

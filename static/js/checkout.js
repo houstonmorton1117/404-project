@@ -86,8 +86,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         const contact = (document.getElementById("contactNumber")?.value || "").trim();
         const meetingLocation = (document.getElementById("meetingLocation")?.value || "").trim();
 
+        const cardholderName = (document.getElementById("cardholderName")?.value || "").trim();
+        const cardNumber = (document.getElementById("cardNumber")?.value || "").trim();
+        const cardExpiry = (document.getElementById("cardExpiry")?.value || "").trim();
+        const cardCvv = (document.getElementById("cardCvv")?.value || "").trim();
+
         if (!firstName || !lastName || !email || !contact || !meetingLocation) {
             showError("All fields are required to complete your transaction.");
+            return;
+        }
+
+        if (!cardholderName || !cardNumber || !cardExpiry || !cardCvv) {
+            showError("Payment details are required to complete your transaction.");
             return;
         }
 
@@ -106,6 +116,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     email,
                     contact,
                     meeting_location: meetingLocation,
+                    cardholder_name: cardholderName,
+                    card_number: cardNumber,
+                    card_expiry: cardExpiry,
+                    cvv: cardCvv,
                 }),
             });
 

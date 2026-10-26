@@ -31,10 +31,7 @@ html, body {
 }
 
 body {
-    background:
-        linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)),
-        url("/static/images/background.png") no-repeat center center fixed;
-    background-size: cover;
+    background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
     color: white;
     font-family: Arial, Helvetica, sans-serif;
     min-height: 100vh;
@@ -109,7 +106,7 @@ body {
 
 /* form card: reusable black/gold section styling */
 .form-card {
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(10, 24, 48, 0.85);
     border: 1px solid rgba(184, 134, 11, 0.65);
     border-radius: 2px;
     padding: 1.5rem;
@@ -263,7 +260,7 @@ select:focus {
 
 /* improve readability of native dropdown options */
 select option {
-    background: #111111;
+    background: #102447;
     color: #ffffff;
 }
 
@@ -388,7 +385,7 @@ input[type="file"] {
 /* primary button */
 .primary-btn {
     background: linear-gradient(145deg, #B8860B, #8B6508);
-    color: black;
+    color: #0a1830;
     border: none;
 }
 
@@ -420,7 +417,7 @@ input[type="file"] {
 .reactivate-btn:hover {
     transform: translateY(-2px);
     opacity: 0.97;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 18px rgba(10, 24, 48, 0.2);
 }
 
 

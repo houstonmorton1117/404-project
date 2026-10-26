@@ -34,6 +34,7 @@ def complete_checkout():
             "confirmation_number": result["confirmation_number"],
             "order_id": result["order"]["id"],
             "total_amount": result["total_amount"],
+            "payment": result["payment"],
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
