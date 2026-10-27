@@ -1,10 +1,11 @@
 /*
     create_storefront.css
 
-    The Vault Campus Marketplace 
+    The Vault Campus Marketplace
     CSC 405 Sp 26'
     Created by Day Ekoi - Iteration 5
     3/22/2026
+    Showtime theatrical palette applied by Houston Morton - 10/27/26
 
 
 Description:
@@ -31,9 +32,9 @@ html, body {
 }
 
 body {
-    background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+    background: var(--stage-bg);
     color: white;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Inter', Arial, Helvetica, sans-serif;
     min-height: 100vh;
     padding: 30px 0;
 }
@@ -56,8 +57,10 @@ body {
 }
 
 
-/* main vault title styling */
+/* main brand title styling */
 .brand-title {
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.06em;
     font-size: 3.6rem;
     font-weight: 800;
     line-height: 1;
@@ -81,8 +84,9 @@ body {
 
 /* page title styling */
 .page-title {
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.04em;
     font-size: 2.8rem;
-    font-style: italic;
     font-weight: 800;
     color: white;
     margin-top: 0.5rem;
@@ -104,9 +108,9 @@ body {
 }
 
 
-/* form card: reusable black/gold section styling */
+/* form card: reusable dark/gold section styling */
 .form-card {
-    background: rgba(10, 24, 48, 0.85);
+    background: rgba(18, 35, 68, 0.85);
     border: 1px solid rgba(184, 134, 11, 0.65);
     border-radius: 2px;
     padding: 1.5rem;
@@ -260,7 +264,7 @@ select:focus {
 
 /* improve readability of native dropdown options */
 select option {
-    background: #102447;
+    background: #122344;
     color: #ffffff;
 }
 
@@ -385,7 +389,7 @@ input[type="file"] {
 /* primary button */
 .primary-btn {
     background: linear-gradient(145deg, #B8860B, #8B6508);
-    color: #0a1830;
+    color: #0d1a33;
     border: none;
 }
 
@@ -417,7 +421,7 @@ input[type="file"] {
 .reactivate-btn:hover {
     transform: translateY(-2px);
     opacity: 0.97;
-    box-shadow: 0 8px 18px rgba(10, 24, 48, 0.2);
+    box-shadow: 0 8px 18px rgba(18, 35, 68, 0.2);
 }
 
 
