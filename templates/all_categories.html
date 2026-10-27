@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Showtime | All Categories</title>
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/storefront.css') }}">
+
+  <style>
+    .categories-container {
+      max-width: 1200px;
+      margin: 35px auto;
+      padding: 0 25px 60px;
+      color: white;
+    }
+
+    .back-link {
+      display: inline-block;
+      color: #e0ad24;
+      border: 1px solid #e0ad24;
+      border-radius: 25px;
+      padding: 10px 20px;
+      text-decoration: none;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .back-link:hover {
+      background: #e0ad24;
+      color: #0b1d3b;
+    }
+
+    .categories-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 35px;
+    }
+
+    .categories-heading {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 800;
+      font-style: italic;
+      color: white;
+    }
+
+    .categories-intro {
+      background: rgba(5, 17, 39, 0.9);
+      border: 1px solid #b88b19;
+      padding: 30px;
+      margin-bottom: 35px;
+    }
+
+    .categories-intro h2 {
+      color: #e0ad24;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .categories-intro p {
+      color: #e0e4ed;
+      line-height: 1.6;
+    }
+
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 22px;
+    }
+
+    .category-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 175px;
+      padding: 25px;
+      background: rgba(5, 17, 39, 0.9);
+      border: 1px solid #b88b19;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .category-card:hover {
+      transform: translateY(-5px);
+      border-color: #f1c34b;
+    }
+
+    .category-card h3 {
+      color: white;
+      font-size: 23px;
+      margin: 0 0 12px;
+    }
+
+    .category-card p {
+      color: #b9c4d6;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .category-link {
+      color: #e0ad24;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 650px) {
+      .categories-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .categories-intro {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="categories-container">
+
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}"
+       class="back-link">
+      &#8249; BACK TO STOREFRONT
+    </a>
+
+    <div class="categories-header">
+      <div>
+        <h1 class="brand-title">
+          <span class="gold">Show</span>time
+        </h1>
+        <p class="brand-subtitle">Fashion Marketplace</p>
+      </div>
+
+      <h2 class="categories-heading">All Categories</h2>
+    </div>
+
+    <section class="categories-intro">
+      <h2>SHOP BY CATEGORY</h2>
+      <p>
+        Find your style by exploring fashion categories from
+        Hampton University's student-owned brands.
+      </p>
+    </section>
+
+    <section class="categories-grid" id="categoriesGrid">
+    </section>
+
+  </main>
+
+  <script>
+    const categories = [
+      ["Streetwear", "Bold everyday fashion and urban styles."],
+      ["Vintage", "Classic finds and timeless fashion."],
+      ["Athleisure", "Comfortable, sporty everyday looks."],
+      ["Accessories", "The finishing touches to your outfit."],
+      ["Casual", "Relaxed styles for everyday wear."],
+      ["Earthy", "Natural tones and laid-back fashion."],
+      ["Retro", "Throwback styles and nostalgic pieces."],
+      ["Other", "Discover something different."]
+    ];
+
+    const grid = document.getElementById("categoriesGrid");
+
+    categories.forEach(([name, description]) => {
+      const card = document.createElement("a");
+      card.className = "category-card";
+
+      // Sends the chosen category to the storefront page.
+      // We'll connect this to actual filtering next.
+      card.href = "{{ url_for('storefront_pages_bp.storefront_home_page') }}"
+        + "?category=" + encodeURIComponent(name);
+
+      const heading = document.createElement("h3");
+      heading.textContent = name;
+
+      const details = document.createElement("p");
+      details.textContent = description;
+
+      const link = document.createElement("span");
+      link.className = "category-link";
+      link.textContent = "EXPLORE CATEGORY →";
+
+      card.append(heading, details, link);
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

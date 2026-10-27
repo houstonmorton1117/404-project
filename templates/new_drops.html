@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Showtime | New Drops</title>
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/storefront.css') }}">
+
+  <style>
+    .drops-container {
+      max-width: 1200px;
+      margin: 35px auto;
+      padding: 0 25px 60px;
+      color: white;
+    }
+
+    .back-link {
+      display: inline-block;
+      color: #e0ad24;
+      border: 1px solid #e0ad24;
+      border-radius: 25px;
+      padding: 10px 20px;
+      text-decoration: none;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .back-link:hover {
+      background: #e0ad24;
+      color: #0b1d3b;
+    }
+
+    .drops-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 35px;
+    }
+
+    .drops-heading {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 800;
+      font-style: italic;
+    }
+
+    .drops-intro {
+      background: rgba(5, 17, 39, 0.9);
+      border: 1px solid #b88b19;
+      padding: 30px;
+      margin-bottom: 35px;
+    }
+
+    .drops-intro h2,
+    .section-title {
+      color: #e0ad24;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .drops-intro p {
+      color: #e0e4ed;
+      line-height: 1.6;
+    }
+
+    .drops-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 22px;
+    }
+
+    .drop-card {
+      background: rgba(5, 17, 39, 0.9);
+      border: 1px solid #b88b19;
+      border-radius: 12px;
+      padding: 22px;
+    }
+
+    .drop-image {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 180px;
+      background: #192f52;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      color: #aeb8c9;
+    }
+
+    .drop-card h3 {
+      font-size: 21px;
+      margin-bottom: 10px;
+    }
+
+    .drop-card p {
+      color: #b9c4d6;
+      margin-bottom: 15px;
+    }
+
+    .drop-link {
+      display: inline-block;
+      color: #e0ad24;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .drop-link:hover {
+      text-decoration: underline;
+    }
+
+    .empty-message {
+      color: #cbd3e0;
+      text-align: center;
+      padding: 35px;
+      border: 1px solid #b88b19;
+      background: rgba(5, 17, 39, 0.9);
+    }
+
+    @media (max-width: 650px) {
+      .drops-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .drops-intro {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="drops-container">
+
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}"
+       class="back-link">
+      &#8249; BACK TO STOREFRONT
+    </a>
+
+    <div class="drops-header">
+      <div>
+        <h1 class="brand-title">
+          <span class="gold">Show</span>time
+        </h1>
+        <p class="brand-subtitle">Fashion Marketplace</p>
+      </div>
+
+      <h2 class="drops-heading">New Drops</h2>
+    </div>
+
+    <section class="drops-intro">
+      <h2>FRESH ON SHOWTIME</h2>
+      <p>
+        Stay up to date with the latest fashion from Hampton
+        University's student-owned brands. Discover newly added
+        styles and explore what's fresh on campus.
+      </p>
+    </section>
+
+    <section>
+      <h2 class="section-title">LATEST ARRIVALS</h2>
+
+      <div class="drops-grid" id="dropsGrid"></div>
+
+      <p class="empty-message" id="emptyMessage">
+        New arrivals will appear here as student brands add products.
+      </p>
+    </section>
+
+  </main>
+</body>
+</html>
