@@ -1,0 +1,137 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Showtime | Hot!</title>
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/storefront.css') }}">
+
+  <style>
+    .hot-container {
+      max-width: 1200px;
+      margin: 35px auto;
+      padding: 0 25px 60px;
+      color: white;
+    }
+
+    .back-link {
+      display: inline-block;
+      color: #e0ad24;
+      border: 1px solid #e0ad24;
+      border-radius: 25px;
+      padding: 10px 20px;
+      text-decoration: none;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .back-link:hover {
+      background: #e0ad24;
+      color: #0b1d3b;
+    }
+
+    .hot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 35px;
+    }
+
+    .hot-heading {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 800;
+      font-style: italic;
+    }
+
+    .hot-intro {
+      background: rgba(5, 17, 39, 0.9);
+      border: 1px solid #b88b19;
+      padding: 30px;
+      margin-bottom: 35px;
+    }
+
+    .hot-intro h2,
+    .section-title {
+      color: #e0ad24;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .hot-intro p {
+      color: #e0e4ed;
+      line-height: 1.6;
+    }
+
+    .hot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 22px;
+    }
+
+    .empty-message {
+      color: #cbd3e0;
+      text-align: center;
+      padding: 35px;
+      border: 1px solid #b88b19;
+      background: rgba(5, 17, 39, 0.9);
+    }
+
+    @media (max-width: 650px) {
+      .hot-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hot-intro {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="hot-container">
+
+    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}"
+       class="back-link">
+      &#8249; BACK TO STOREFRONT
+    </a>
+
+    <div class="hot-header">
+      <div>
+        <h1 class="brand-title">
+          <span class="gold">Show</span>time
+        </h1>
+        <p class="brand-subtitle">Fashion Marketplace</p>
+      </div>
+
+      <h2 class="hot-heading">Hot! 🔥</h2>
+    </div>
+
+    <section class="hot-intro">
+      <h2>TRENDING ON SHOWTIME</h2>
+      <p>
+        Discover what's catching everyone's attention on campus.
+        Explore popular styles, standout brands, and the fashion
+        trends making waves across Hampton University.
+      </p>
+    </section>
+
+    <section>
+      <h2 class="section-title">WHAT'S HOT RIGHT NOW</h2>
+
+      <div class="hot-grid" id="hotGrid"></div>
+
+      <p class="empty-message" id="emptyMessage">
+        Trending products will appear here as the Showtime
+        community discovers and shops student-owned brands.
+      </p>
+    </section>
+
+  </main>
+</body>
+</html>

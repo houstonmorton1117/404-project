@@ -63,6 +63,21 @@ def get_current_user():
 def storefront_home_page():
     return render_template("storefront.html")
 
+@storefront_pages_bp.route("/explore_brands")
+def explore_brands_page():
+    return render_template("explore_brands.html")
+
+@storefront_pages_bp.route("/all-categories")
+def all_categories_page():
+    return render_template("all_categories.html")
+
+@storefront_pages_bp.route("/new-drops")
+def new_drops_page():
+    return render_template("new_drops.html")
+
+@storefront_pages_bp.route("/hot")
+def hot_page():
+    return render_template("hot.html")
 
 @storefront_pages_bp.route("/storefronts/create")
 def create_storefront_page():
