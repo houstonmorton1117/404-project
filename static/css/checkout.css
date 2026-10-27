@@ -84,6 +84,29 @@ input, textarea {
     outline: none;
 }
 
+/* Stripe-hosted card field (checkout payment) - styled to match the inputs above */
+.stripe-card-field {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(184, 134, 11, 0.5);
+    padding: 1rem;
+    margin-top: 5px;
+}
+
+.stripe-card-field.StripeElement--focus {
+    border-color: #B8860B;
+}
+
+.stripe-card-field.StripeElement--invalid {
+    border-color: #ff6b6b;
+}
+
+.card-errors {
+    color: #ff6b6b;
+    font-size: 0.85rem;
+    min-height: 1.2em;
+    margin: 6px 0 20px;
+}
+
 /* COMPLETE TRANSACTION BUTTON: Primary style (Solid Gold Gradient) */
 .primary-btn {
     width: 100%;
