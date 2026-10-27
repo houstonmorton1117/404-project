@@ -109,7 +109,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const res = await fetch("/api/checkout/complete", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    // CSRF protection added by Rochele Solmon
+                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                        || document.querySelector('input[name="csrf_token"]')?.value
+                },
                 body: JSON.stringify({
                     first_name: firstName,
                     last_name: lastName,

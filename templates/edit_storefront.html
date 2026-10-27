@@ -15,6 +15,8 @@ brand name, contact info, description, logo, and banner.
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Storefront</title>
+     <!-- CSRF protection added by Rochele Solmon -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/create_storefront.css') }}">
     <!-- Drag-drop zone styles - Added by Day Ekoi 4/20/26 -->
     <style>

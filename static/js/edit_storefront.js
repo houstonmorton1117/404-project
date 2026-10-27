@@ -82,7 +82,10 @@ function configureStorefrontStatusButton(storefront, user) {
                 method: "PATCH",
                 headers: {
                     "X-User-Id": user.id,
-                    "X-User-Role": user.role
+                    "X-User-Role": user.role,
+                    // CSRF protection added by Rochele Solmon
+                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                        || document.querySelector('input[name="csrf_token"]')?.value
                 }
             });
 
@@ -181,6 +184,11 @@ async function uploadImageToS3(file, folder) {
 
     const res = await fetch("/api/storefronts/upload-image", {
         method: "POST",
+        headers: {
+            // CSRF protection added by Rochele Solmon
+            "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="csrf_token"]')?.value
+        },
         body: uploadData
     });
 
@@ -330,7 +338,10 @@ async function init() {
                 headers: {
                     "Content-Type": "application/json",
                     "X-User-Id": user.id,
-                    "X-User-Role": user.role
+                    "X-User-Role": user.role,
+                    // CSRF protection added by Rochele Solmon
+                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                        || document.querySelector('input[name="csrf_token"]')?.value
                 },
                 body: JSON.stringify(payload)
             });

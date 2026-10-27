@@ -33,6 +33,8 @@ This file acts as the UI structure (skeleton) of the Create Listing feature.
 
     <!-- Page title shown in browser tab -->
     <title>Create Listing</title>
+    <!-- CSRF protection added by Rochele Solmon -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Flask version - uses create_storefront.css for styling consistency -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/create_storefront.css') }}">
