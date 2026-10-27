@@ -1,10 +1,13 @@
 # The Vault Campus Marketplace
 # CSC 405 Sp 26'
 # Updated by Saffie Cherif - 10/1/26 - API-only blueprint
+# Updated by Jasmine Mark 10/25/26 - corrected error handling
 
 from flask import Blueprint, request, jsonify, session
 
+from models.checkout_model import OutOfStockError
 from services.checkout_service import (
+    CheckoutError,
     complete_transaction_from_session,
     get_order_summary_service,
     get_user_orders_service,
@@ -36,8 +39,12 @@ def complete_checkout():
             "total_amount": result["total_amount"],
             "payment": result["payment"],
         }), 200
-    except Exception as e:
+    except (CheckoutError, OutOfStockError) as e:
         return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        # Unexpected errors (e.g. database failures) are logged here but never shown to the buyer.
+        print(f"[checkout] unexpected error for user {user_id}: {e}")
+        return jsonify({"error": "Checkout failed. Please try again."}), 500
 
 
 @checkout_bp.route("/orders/by-confirmation/<confirmation_number>", methods=["GET"])
