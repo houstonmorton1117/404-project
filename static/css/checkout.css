@@ -1,8 +1,9 @@
 /* checkout.css
     The Vault Campus Marketplace
     Created by Kaila Roberts - Iteration 4
-    
-    This file pulls the theme from storefront.css to ensure 
+    Showtime theatrical palette applied by Houston Morton - 10/27/26
+
+    This file pulls the theme from storefront.css to ensure
     consistent branding across the purchase flow.
 */
 
@@ -10,9 +11,9 @@
 /* Base Page Styles */
 body {
     /* Uses the specific background gradient and image path from the project */
-    background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+    background: var(--stage-bg);
     color: white;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Inter', Arial, Helvetica, sans-serif;
     margin: 0;
 }
 
@@ -44,7 +45,7 @@ body {
 .secondary-btn:hover {
     background: rgba(212, 175, 55, 0.1); /* Subtle gold glow on hover */
     transform: translateY(-2px); /* Matches movement of storefront cards */
-    box-shadow: 0 4px 15px rgba(10, 24, 48, 0.4);
+    box-shadow: 0 4px 15px rgba(18, 35, 68, 0.4);
 }
 
 /* Form & Input Styles */
@@ -56,7 +57,7 @@ body {
 }
 
 .form-card {
-    background: rgba(10, 24, 48, 0.85);
+    background: rgba(18, 35, 68, 0.85);
     border: 1px solid rgba(184, 134, 11, 0.65);
     padding: 2rem;
     box-shadow: 0 0 25px rgba(184, 134, 11, 0.18);
@@ -112,7 +113,7 @@ input, textarea {
     width: 100%;
     padding: 1rem;
     background: linear-gradient(145deg, #B8860B, #8B6508);
-    color: #0a1830;
+    color: #0d1a33;
     border: none;
     font-weight: 800;
     text-transform: uppercase;
@@ -152,6 +153,6 @@ input, textarea {
     padding-top: 16px;
 }
 
-.brand-title { font-size: 1.8rem; margin: 0; letter-spacing: 2px; }
+.brand-title { font-family: 'Bebas Neue', 'Inter', sans-serif; letter-spacing: 0.04em; font-size: 1.8rem; margin: 0; }
 .brand-subtitle { color: #888; margin: 4px 0 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
 .brand-block { text-align: right; }

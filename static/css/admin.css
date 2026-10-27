@@ -1,12 +1,13 @@
 /* File Created By David Jackson */
+/* Showtime theatrical palette applied by Houston Morton - 10/27/26 */
 
 /* General page styling */
 /* Updated 4/20/26 */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Inter', Arial, sans-serif;
     padding: 20px;
 
-    background-image: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+    background-image: var(--stage-bg);
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
@@ -15,6 +16,8 @@ body {
 /* Main title styling */
 /* Updated 4/21/2026 */
 h1 {
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.04em;
     text-align: center;
     color: #d4af37;
 }
@@ -23,7 +26,7 @@ h1 {
 /* Updated 4/21/2026 */
 section {
     margin-bottom: 40px;
-    background: rgba(10, 24, 48, 0.75); /* Dark glass look */
+    background: rgba(18, 35, 68, 0.75); /* Dark glass look */
     color: white;
     padding: 20px;
     border-radius: 8px;
@@ -60,8 +63,8 @@ button.delete {
 
 /* Logout button styling - added 4/23/2026 by David Jackson */
 .logout-btn {
-    background: #d4af37;
-    color: #0a1830;
+    background: #ceb04e;
+    color: #0d1a33;
     font-weight: bold;
     border: none;
 }

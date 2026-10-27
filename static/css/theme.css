@@ -1,0 +1,156 @@
+/*
+  Showtime global theme.
+  Palette sampled from the Showtime logo (navy + gold). Motifs: marquee gold,
+  spotlight glow, searchlight rays, ticket-stub cards.
+  Every page should link this file and reuse these classes instead of
+  re-inventing colors/buttons/cards inline.
+*/
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --stage-navy: #122344;
+  --stage-navy-deep: #081020;
+  --navy-mid: #1c3561;
+  --navy-deep: #0d1a33;
+  --gold: #ceb04e;
+  --gold-bright: #e8ca7c;
+  --gold-dim: rgba(206, 176, 78, 0.35);
+  --spotlight: #fff4d6;
+  --cream: #eef1f6;
+  --ticket-cream: #f7f3e8;
+  --ink: #0d1a33;
+  --shadow-deep: rgba(0, 0, 0, 0.55);
+
+  /* Searchlight rays fanning from above + a soft glow, over a navy gradient -
+     reads as a premiere-night sky instead of a plain dotted texture. */
+  --stage-bg:
+    repeating-conic-gradient(from 0deg at 50% -20%,
+      rgba(206, 176, 78, 0.07) 0deg 4deg, transparent 4deg 18deg),
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(206, 176, 78, 0.16), transparent 65%),
+    linear-gradient(180deg, var(--stage-navy) 0%, var(--stage-navy-deep) 100%);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  background: var(--stage-navy);
+  color: var(--cream);
+  margin: 0;
+}
+
+a { color: inherit; }
+
+.marquee-title {
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  letter-spacing: 0.12em;
+}
+
+/* A strip of small gold bulbs, like the light string on a theater marquee. */
+.marquee-lights {
+  height: 6px;
+  background-image: radial-gradient(circle, var(--gold-bright) 2.2px, transparent 2.6px);
+  background-size: 18px 100%;
+  background-repeat: repeat-x;
+  opacity: 0.85;
+}
+
+/* Soft spotlight glow behind a hero element. Element needs position:relative. */
+.spotlight-glow { position: relative; }
+.spotlight-glow::before {
+  content: "";
+  position: absolute;
+  inset: -20% -20% auto -20%;
+  height: 140%;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 244, 214, 0.28), transparent 62%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.btn-ticket {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--gold), #9a7a1f);
+  color: var(--ink);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-ticket:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 22px var(--gold-dim);
+}
+
+.btn-ticket-outline {
+  display: inline-block;
+  background: transparent;
+  color: var(--gold-bright);
+  border: 1.5px solid var(--gold);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 12px 26px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-ticket-outline:hover {
+  background: var(--gold);
+  color: var(--ink);
+  box-shadow: 0 0 16px var(--gold-dim);
+}
+
+/* Card styled like a cream theater program / ticket panel. */
+.card-stage {
+  background: var(--ticket-cream);
+  color: var(--ink);
+  border-radius: 6px;
+  box-shadow: 0 16px 40px var(--shadow-deep);
+}
+
+.field-group { margin-bottom: 20px; text-align: left; }
+.field-group label {
+  color: var(--navy-deep);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.field-group input {
+  width: 100%;
+  background: #fff;
+  border: 1.5px solid rgba(13, 26, 51, 0.18);
+  border-radius: 3px;
+  padding: 12px 14px;
+  color: var(--ink);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.field-group input:focus {
+  border-color: var(--navy-deep);
+  box-shadow: 0 0 0 3px var(--gold-dim);
+}
+
+/* Thin decorative marquee trim (static, no slide/reveal animation). */
+.curtain-top {
+  height: 14px;
+  background: repeating-linear-gradient(90deg,
+    var(--stage-navy) 0px, var(--navy-mid) 14px,
+    var(--stage-navy) 28px, var(--stage-navy-deep) 42px);
+  border-bottom: 3px solid var(--gold);
+}

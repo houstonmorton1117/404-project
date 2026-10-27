@@ -1,10 +1,11 @@
 /*
     my_storefront.css
 
-    The Vault Campus Marketplace 
+    The Vault Campus Marketplace
     CSC 405 Sp 26'
     Created by Day Ekoi - Iteration 4 - 3/22/2026
     Fully Integrated and Updated by Day Ekoi - Iteration 5 - 4/9/2026
+    Showtime theatrical palette applied by Houston Morton - 10/27/26
 
 
 Description:
@@ -27,9 +28,9 @@ Works with:
 
 /* page base - Updated by Day Ekoi 4/20/26 - vault background to match other pages */
 body {
-    background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+    background: var(--stage-bg);
     color: white;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Inter', Arial, Helvetica, sans-serif;
     min-height: 100vh;
     padding: 28px 0 40px;
 }
@@ -52,7 +53,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(10, 24, 48,0.55);
+    background: rgba(18, 35, 68, 0.55);
     border: 1px solid rgba(212,175,55,0.5);
     border-radius: 999px;
     color: #d4af37;
@@ -78,9 +79,10 @@ body {
 
 /* page title */
 .dashboard-title {
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.04em;
     text-align: center;
     font-size: 2.6rem;
-    font-style: italic;
     font-weight: 800;
     margin-bottom: 0.8rem;
 }
@@ -89,7 +91,7 @@ body {
 .banner-box {
     width: 100%;
     min-height: 240px;
-    background: rgba(10, 24, 48,0.84);
+    background: rgba(18, 35, 68, 0.84);
     border: 1px solid #d4af37;
     border-radius: 8px;
     background-size: cover;
@@ -168,16 +170,6 @@ body {
     width: auto;
 }
 
-/* Removed by Day Ekoi - Iteration 5 - 4/20/26: inline brand name no longer used under banner.
-.brand-name {
-    font-size: 2rem;
-    font-style: italic;
-    font-weight: 800;
-    color: white;
-    margin: 0;
-}
-*/
-
 /* bio in left column */
 .store-bio {
     color: #c9c9c9;
@@ -209,7 +201,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(10, 24, 48,0.55);
+    background: rgba(18, 35, 68, 0.55);
     border: 1px solid rgba(212,175,55,0.5);
     border-radius: 999px;
     color: #d4af37;
@@ -267,11 +259,11 @@ body {
 /* listing card placeholder */
 .listing-card {
     min-height: 320px;
-    background: rgba(10, 24, 48, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(18, 35, 68, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.35);
     border-radius: 26px;
     overflow: hidden;
-    box-shadow: 0 0 18px rgba(10, 24, 48, 0.28);
+    box-shadow: 0 0 18px rgba(18, 35, 68, 0.28);
     position: relative;
 }
 
@@ -334,10 +326,10 @@ body {
     right: 0;
     bottom: calc(100% + 8px);
     min-width: 180px;
-    background: rgba(10, 24, 48, 0.96);
+    background: rgba(18, 35, 68, 0.96);
     border: 1px solid rgba(212,175,55,0.35);
     border-radius: 10px;
-    box-shadow: 0 10px 26px rgba(10, 24, 48, 0.34);
+    box-shadow: 0 10px 26px rgba(18, 35, 68, 0.34);
     overflow: hidden;
     z-index: 10;
 }
