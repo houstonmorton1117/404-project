@@ -17,6 +17,7 @@ Updated 10/27/26 - card number/expiry/CVV inputs replaced with a Stripe-hosted c
     <!-- Stripe publishable key: safe to show in the page, it can only create payment tokens -->
     <meta name="stripe-publishable-key" content="{{ stripe_publishable_key }}">
 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">
 </head>
 <body>

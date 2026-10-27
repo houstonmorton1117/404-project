@@ -1,4 +1,4 @@
-/* 
+/*
     storefront.css
 
     The Vault Campus Marketplace
@@ -7,8 +7,9 @@
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - added lightbox overlay styles for storefront card image previews
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - restyled enter/page buttons to pill style; increased carousel image height; commented out bag-form styles
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - aligned storefront CTA and pagination buttons with back-button styling; expanded image area on cards
+    Showtime theatrical palette applied by Houston Morton - 10/27/26
 
-Description: 
+Description:
 The purpose of this file is to control the style and layout of the storefront homepage.
 Responsible for page background styles, top nav bar, branding, search bar storefront cards (grid & layout), image area, and page controls. Its overall purpose is to
 make the storefront page visually organized and responsive
@@ -39,9 +40,9 @@ html, body {
 }
 
 body {
-    background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+    background: var(--stage-bg);
     color: white;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Inter', Arial, Helvetica, sans-serif;
 }
 
 
@@ -49,7 +50,7 @@ body {
 .nav-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 24, 48, 0.55);
+    background: rgba(18, 35, 68, 0.6);
     opacity: 0;
     visibility: hidden;
     transition: 0.25s ease;
@@ -69,7 +70,7 @@ body {
     left: 0;
     right: 0;
     max-height: 80vh;
-    background: rgba(38, 38, 42, 0.97);
+    background: rgba(10, 20, 40, 0.97);
     border-bottom: 1px solid #d4af37;
     padding: 30px 22px 24px 22px;
     z-index: 30;
@@ -102,86 +103,13 @@ body {
 }
 
 
-/* Metallic button styling */
-/* .create-btn,
-.enter-btn,
-.page-btn {
-    background: linear-gradient(145deg, #B8860B, #8B6508);
-    color: #0a1830;
-    border: none;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: 0.3s;
-    border-radius: 2px;
-} */
-
-/* .create-btn:hover,
-.enter-btn:hover,
-.page-btn:hover {
-    filter: brightness(1.2);
-    transform: translateY(-2px);
-} */
-
-/* Removed by Day Ekoi - Iteration 5 - 4/20/26: old metallic gradient style replaced with pill style below.
-   Updated by Day E 4/9/26 - separated create-btn from enter/page btns, added white border and transparent bg
-.enter-btn,
-.page-btn {
-    background: linear-gradient(145deg, #B8860B, #8B6508);
-    color: #0a1830;
-    border: none;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: 0.3s;
-    border-radius: 2px;
-}
-
-.enter-btn:hover,
-.page-btn:hover {
-    filter: brightness(1.2);
-    transform: translateY(-2px);
-}
-*/
-
-/* Removed by Day Ekoi - Iteration 5 - 4/20/26: earlier storefront pill style replaced below with the exact shared back-button treatment.
 .enter-btn,
 .page-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    background: rgba(10, 24, 48, 0.55);
-    border: 1px solid rgba(212, 175, 55, 0.5);
-    border-radius: 999px;
-    color: #d4af37;
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 8px 22px;
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s, border-color 0.2s;
-}
-
-.enter-btn:hover,
-.page-btn:hover {
-    background: rgba(212, 175, 55, 0.15);
-    color: #f0cc55;
-    border-color: rgba(212, 175, 55, 0.8);
-}
-*/
-
-/* Updated by Day Ekoi - Iteration 5 - 4/20/26: exact back-button styling reused for storefront CTA and pagination */
-.enter-btn,
-.page-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    background: rgba(10, 24, 48,0.55);
+    background: rgba(18, 35, 68, 0.55);
     border: 1px solid rgba(212,175,55,0.5);
     border-radius: 999px;
     color: #d4af37;
@@ -213,7 +141,7 @@ body {
     margin-bottom: 10px;
     background: transparent;
     color: white;
-    border: 1px solid white;
+    border: 1px solid rgba(212, 175, 55, 0.6);
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -223,7 +151,7 @@ body {
 }
 
 .create-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(212, 175, 55, 0.12);
     transform: translateY(-2px);
 }
 
@@ -262,11 +190,11 @@ nav-divider { /* updated by Day E 4/9/2026 */
 }
 
 .nav-item:hover {
-    color: #B8860B;
+    color: #d4af37;
 }
 
 .nav-heading {
-    color: rgba(204, 178, 128, 0.75); /* Updated by Day E 3/22/26 */
+    color: rgba(243, 207, 107, 0.75); /* Updated by Day E 3/22/26 */
     font-size: 0.95rem; /* Updated by Day E 3/22/26 */
     margin-bottom: 12px; /* Updated by Day E 3/22/26 */
 }
@@ -280,7 +208,7 @@ nav-divider { /* updated by Day E 4/9/2026 */
 }
 
 .nav-subitem:hover {
-    color: #B8860B; /* Updated by Day E 3/22/26 */
+    color: #d4af37; /* Updated by Day E 3/22/26 */
 }
 
 
@@ -334,50 +262,6 @@ nav-divider { /* updated by Day E 4/9/2026 */
     cursor: pointer; /* Updated by Day E 3/22/26 */
 }
 
-/* Removed by Day Ekoi - Iteration 5 - 4/20/26: bag form removed from storefront cards.
-   Originally added by Ryan 3/25/26. Kept as version history.
-.bag-form {
-    margin-top: 10px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-}
-
-.selection-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.vault-select, .vault-qty {
-    background: #0a1830;
-    color: #D4AF37;
-    border: 1px solid #B8860B;
-    padding: 8px;
-    border-radius: 4px;
-}
-
-.vault-select { flex: 2; }
-.vault-qty { flex: 1; }
-
-.add-bag-btn {
-    width: 100%;
-    padding: 10px;
-    background: transparent;
-    color: #D4AF37;
-    border: 1px solid #D4AF37;
-    text-transform: uppercase;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-.add-bag-btn:hover {
-    background: #D4AF37;
-    color: #0a1830;
-}
-*/
-
 .topbar-svg {
     width: 48px; /* Updated by Day E 3/22/26 */
     height: 48px; /* Updated by Day E 3/22/26 */
@@ -419,6 +303,8 @@ nav-divider { /* updated by Day E 4/9/2026 */
 }
 
 .brand-title {
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.06em;
     font-size: 4rem;
     font-weight: 800;
 }
@@ -435,8 +321,8 @@ nav-divider { /* updated by Day E 4/9/2026 */
 .search-input {
     width: 100%;
     max-width: 600px;
-    background: rgba(10, 24, 48, 0.82);
-    border: 1px solid #B8860B;
+    background: rgba(18, 35, 68, 0.82);
+    border: 1px solid #d4af37;
     padding: 16px;
     color: white;
     border-radius: 999px;
@@ -463,8 +349,8 @@ nav-divider { /* updated by Day E 4/9/2026 */
 
 /* Individual storefront card */
 .storefront-card {
-    background: rgba(10, 24, 48, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(18, 35, 68, 0.78);
+    border: 1px solid rgba(212, 175, 55, 0.35);
     border-radius: 26px;
     padding: 22px;
     /* min-height: 520px; — Updated by Day Ekoi - Iteration 5 - 4/20/26: removed fixed min-height, card height now driven by image */
@@ -498,6 +384,8 @@ nav-divider { /* updated by Day E 4/9/2026 */
 }
 
 .storefront-name {
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.04em;
     font-size: 2rem;
     font-weight: bold;
 }
@@ -523,9 +411,9 @@ nav-divider { /* updated by Day E 4/9/2026 */
     border-radius: 10px;
 }
 
-/* Navy tint over product photos so white/light product backdrops blend with the
+/* Stage-black tint over product photos so white/light product backdrops blend with the
    theme instead of sitting as a stark white box. mix-blend-mode: multiply keeps
-   dark product details intact while darkening light backgrounds toward navy,
+   dark product details intact while darkening light backgrounds toward the stage tone,
    so it works consistently across photos with different backdrop colors. */
 .carousel-shell::after {
     content: "";
@@ -535,7 +423,7 @@ nav-divider { /* updated by Day E 4/9/2026 */
     right: 0;
     height: 380px;
     border-radius: 10px;
-    background: linear-gradient(135deg, rgba(10, 24, 48, 0.4), rgba(16, 36, 71, 0.2));
+    background: linear-gradient(135deg, rgba(18, 35, 68, 0.4), rgba(28, 53, 97, 0.2));
     mix-blend-mode: multiply;
     pointer-events: none;
 }
@@ -547,7 +435,7 @@ nav-divider { /* updated by Day E 4/9/2026 */
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    background: #0a1830;
+    background: #0d1a33;
     color: white;
     border: none;
     cursor: pointer;
@@ -562,13 +450,6 @@ nav-divider { /* updated by Day E 4/9/2026 */
     text-align: center;
     margin-top: 10px;
 }
-
-/* Removed by Day Ekoi - Iteration 5 - 4/20/26: padding/radius override no longer needed, handled by pill style above.
-.enter-btn {
-    padding: 14px 30px;
-    border-radius: 2px;
-}
-*/
 
 
 /* Pagination */
@@ -591,7 +472,7 @@ nav-divider { /* updated by Day E 4/9/2026 */
 .lightbox-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 24, 48, 0.88);
+    background: rgba(18, 35, 68, 0.88);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -613,7 +494,7 @@ nav-divider { /* updated by Day E 4/9/2026 */
     object-fit: contain;
     border-radius: 10px;
     border: 1px solid rgba(212, 175, 55, 0.4);
-    box-shadow: 0 0 40px rgba(10, 24, 48, 0.7);
+    box-shadow: 0 0 40px rgba(18, 35, 68, 0.7);
     pointer-events: none;
 }
 
