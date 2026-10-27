@@ -1,6 +1,7 @@
 # The Vault Campus Marketplace
 # Modified by Jasmine Mark 10/25/26 - Checkout now uses one databse connection and failed stock update cancels the entire transaction. Added OutOfStockError class to handle stock issues.
 # Edited By Saffie C. Oct 27
+# Updated 10/27/26 - payments now go through Stripe tokens; card is held, then charged only once the order is saved
 
 import random
 import string
@@ -19,7 +20,17 @@ from models.checkout_model import (
     remove_purchased_from_wishlist,
     check_listing_availability,
 )
-from utils.payments import process_simulated_payment, PaymentError
+from utils.payments import (
+    PaymentError,
+    authorize_payment,
+    cancel_payment,
+    capture_payment,
+    refund_payment,
+)
+
+# Raw card fields the old checkout form used to send. Only Stripe's token is accepted now,
+# so a request carrying any of these is refused before anything else happens.
+RAW_CARD_FIELDS = ("card_number", "card_expiry", "cvv", "cvc", "card_cvc")
 
 
 class CheckoutError(Exception):
@@ -42,6 +53,12 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     if not session_cart:
         raise CheckoutError("Cart is empty.")
 
+    if any(buyer_details.get(field) for field in RAW_CARD_FIELDS):
+        raise CheckoutError(
+            "For your security, card details can't be sent to our server. "
+            "Please refresh the checkout page and try again."
+        )
+
     # Each add-to-cart appends a line, so total the quantity per listing/size before checking stock.
     requested = {}
     for item in session_cart:
@@ -56,11 +73,26 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
 
     # Everything from the stock check to clearing the cart runs in one transaction on one connection:
     # either the order, its items, the stock decrease, and the cleared cart are all saved, or none are.
+    # The card is charged (captured) only after every database step has succeeded, right before the
+    # commit. If anything fails first, the hold is released; if the commit itself fails after the
+    # charge, the charge is refunded. Either way the buyer is never charged without an order.
     conn = get_connection()
+    payment = {}  # _complete_transaction fills this in once Stripe has placed a hold
+    captured = False
     try:
-        result = _complete_transaction(conn, user_id, session_cart, buyer_details, requested)
+        result = _complete_transaction(conn, user_id, session_cart, buyer_details, requested, payment)
+        try:
+            capture_payment(payment["intent_id"])
+        except PaymentError as e:
+            raise CheckoutError(str(e))
+        captured = True
         conn.commit()
     except Exception:
+        if payment.get("intent_id"):
+            if captured:
+                refund_payment(payment["intent_id"])
+            else:
+                cancel_payment(payment["intent_id"])
         conn.rollback()
         raise
     finally:
@@ -76,8 +108,9 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     return result
 
 
-def _complete_transaction(conn, user_id, session_cart, buyer_details, requested):
-    """Runs the checkout steps on the caller's connection without committing."""
+def _complete_transaction(conn, user_id, session_cart, buyer_details, requested, payment):
+    """Runs the checkout steps on the caller's connection without committing.
+    Places a payment hold and records its details in `payment` so the caller can capture or release it."""
     # Validate availability and re-price every item from the database; cart prices are display-only.
     # Each listing row stays locked until the transaction ends, so a second buyer for the same listing
     # waits here and then sees the reduced stock. Locking in listing-id order prevents deadlocks.
@@ -108,20 +141,24 @@ def _complete_transaction(conn, user_id, session_cart, buyer_details, requested)
 
     total_amount = round(sum(item["price"] * item["quantity"] for item in priced_items), 2)
 
-    # Payment is processed (simulated) before the order is created, so a
-    # declined/invalid card never results in an order record.
+    confirmation_number = _generate_confirmation_number()
+
+    # Stripe places a hold for the server-computed total using the token the browser got from
+    # Stripe.js. A declined card stops checkout here, before any order record is written.
+    payment_method_id = buyer_details.get("payment_method_id")
     try:
-        payment_result = process_simulated_payment(
-            card_number=buyer_details.get("card_number"),
-            card_expiry=buyer_details.get("card_expiry"),
-            cvv=buyer_details.get("cvv"),
-            cardholder_name=buyer_details.get("cardholder_name"),
+        authorization = authorize_payment(
+            payment_method_id=payment_method_id,
             amount=total_amount,
+            cardholder_name=buyer_details.get("cardholder_name"),
+            # A repeated submit of the same token for the same order reuses Stripe's first result
+            # instead of placing a second hold.
+            idempotency_key=f"checkout-{user_id}-{payment_method_id}-{total_amount:.2f}",
+            metadata={"user_id": str(user_id), "confirmation_number": confirmation_number},
         )
     except PaymentError as e:
         raise CheckoutError(str(e))
-
-    confirmation_number = _generate_confirmation_number()
+    payment.update(authorization)
 
     order = create_order(
         user_id=user_id,
@@ -132,9 +169,9 @@ def _complete_transaction(conn, user_id, session_cart, buyer_details, requested)
         buyer_contact=contact,
         buyer_meeting_location=meeting_location,
         total_amount=total_amount,
-        card_last4=payment_result["card_last4"],
-        transaction_ref=payment_result["transaction_ref"],
-        payment_status=payment_result["status"],
+        card_last4=authorization["card_last4"],
+        transaction_ref=authorization["intent_id"],
+        payment_status="PAID",
         conn=conn,
     )
 
@@ -173,9 +210,9 @@ def _complete_transaction(conn, user_id, session_cart, buyer_details, requested)
         "order_items": order_items,
         "total_amount": total_amount,
         "payment": {
-            "status": payment_result["status"],
-            "card_last4": payment_result["card_last4"],
-            "transaction_ref": payment_result["transaction_ref"],
+            "status": "PAID",
+            "card_last4": authorization["card_last4"],
+            "transaction_ref": authorization["intent_id"],
         },
     }
 

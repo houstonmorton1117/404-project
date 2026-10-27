@@ -34,9 +34,7 @@ BUYER_DETAILS = {
     "contact": "555-0100",
     "meeting_location": "Library",
     "cardholder_name": "Test Buyer",
-    "card_number": "4242424242424242",
-    "card_expiry": "12/30",
-    "cvv": "123",
+    "payment_method_id": "pm_card_visa",  # Stripe test token (card ending 4242)
 }
 
 # race conditions don't happen every time, so the race test repeats this many times

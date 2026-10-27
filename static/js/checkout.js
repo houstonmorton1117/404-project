@@ -7,6 +7,8 @@
     - Displays items with size, qty, and subtotals
     - Submits buyer details to /api/checkout/complete
     - Redirects to order confirmation on success
+    Updated 10/27/26 - card details are collected by a Stripe-hosted field and turned
+    into a payment token (pm_...) in the browser; only the token is sent to our server
 */
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -72,6 +74,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (totalDisplay) totalDisplay.textContent = `$${total.toFixed(2)}`;
 
+    // Stripe card field. Whatever the buyer types here goes directly to Stripe; this page
+    // never reads the card number or CVC. Stripe gives back a PaymentMethod token instead.
+    const publishableKey = document.querySelector('meta[name="stripe-publishable-key"]')?.content || "";
+    const cardErrors = document.getElementById("cardErrors");
+    let stripe = null;
+    let cardElement = null;
+
+    if (publishableKey && window.Stripe) {
+        stripe = window.Stripe(publishableKey);
+        cardElement = stripe.elements().create("card", {
+            hidePostalCode: true,
+            style: {
+                base: {
+                    color: "#ffffff",
+                    fontFamily: "Arial, Helvetica, sans-serif",
+                    fontSize: "16px",
+                    "::placeholder": { color: "#888888" },
+                },
+                invalid: { color: "#ff6b6b", iconColor: "#ff6b6b" },
+            },
+        });
+        cardElement.mount("#cardElement");
+        cardElement.on("change", (event) => {
+            if (cardErrors) cardErrors.textContent = event.error ? event.error.message : "";
+        });
+    } else {
+        // No key configured, or Stripe.js was blocked from loading.
+        showError("Online payments aren't available right now. Please try again later.");
+        if (submitBtn) submitBtn.disabled = true;
+    }
+
     // Handle form submission
     const form = document.getElementById("checkoutForm");
     if (!form) return;
@@ -87,17 +120,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const meetingLocation = (document.getElementById("meetingLocation")?.value || "").trim();
 
         const cardholderName = (document.getElementById("cardholderName")?.value || "").trim();
-        const cardNumber = (document.getElementById("cardNumber")?.value || "").trim();
-        const cardExpiry = (document.getElementById("cardExpiry")?.value || "").trim();
-        const cardCvv = (document.getElementById("cardCvv")?.value || "").trim();
 
         if (!firstName || !lastName || !email || !contact || !meetingLocation) {
             showError("All fields are required to complete your transaction.");
             return;
         }
 
-        if (!cardholderName || !cardNumber || !cardExpiry || !cardCvv) {
-            showError("Payment details are required to complete your transaction.");
+        if (!cardholderName) {
+            showError("Cardholder name is required to complete your transaction.");
+            return;
+        }
+
+        if (!stripe || !cardElement) {
+            showError("Online payments aren't available right now. Please try again later.");
             return;
         }
 
@@ -107,6 +142,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
+            // Hand the card field to Stripe and get back a token. A fresh token is made on every
+            // attempt, so a declined card can simply be corrected and resubmitted.
+            const { paymentMethod, error } = await stripe.createPaymentMethod({
+                type: "card",
+                card: cardElement,
+                billing_details: { name: cardholderName, email },
+            });
+            if (error) {
+                throw new Error(error.message || "Please check your card details.");
+            }
+
             const res = await fetch("/api/checkout/complete", {
                 method: "POST",
                 headers: {
@@ -122,9 +168,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     contact,
                     meeting_location: meetingLocation,
                     cardholder_name: cardholderName,
-                    card_number: cardNumber,
-                    card_expiry: cardExpiry,
-                    cvv: cardCvv,
+                    payment_method_id: paymentMethod.id,
                 }),
             });
 

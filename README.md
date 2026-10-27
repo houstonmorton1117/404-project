@@ -67,6 +67,8 @@ DB_USER=your-mac-username
 DB_PASSWORD=
 DB_PORT=5432
 SECRET_KEY=dev
+STRIPE_SECRET_KEY=sk_test_your-key
+STRIPE_PUBLISHABLE_KEY=pk_test_your-key
 ```
 
 Replace `your-mac-username` with the output of the `whoami` command. Leave `DB_PASSWORD` empty.
@@ -117,6 +119,8 @@ DB_USER=postgres
 DB_PASSWORD=the-password-from-step-2
 DB_PORT=5432
 SECRET_KEY=dev
+STRIPE_SECRET_KEY=sk_test_your-key
+STRIPE_PUBLISHABLE_KEY=pk_test_your-key
 ```
 
 **7. Create the tables and start the app**
@@ -134,6 +138,7 @@ Open **http://127.0.0.1:5000** in your browser. To stop the app, press **Ctrl+C*
 - **Signing up** only accepts emails ending in `@hamptonu.edu` or `@my.hamptonu.edu`. Nothing is emailed, so any made-up address at those domains works for testing.
 - **Each person has their own database.** Accounts and listings you create exist only on your computer.
 - **Don't use `.env.example`.** It's out of date. Use the `.env` contents above.
+- **Checkout payments** go through Stripe in test mode, so no real money moves. Put the team's Stripe test keys in `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` (or make a free Stripe account and copy both test keys from Developers → API keys). Pay with test card `4242 4242 4242 4242`, any future date, any CVC. Without keys, checkout says online payments aren't set up. Only `sk_test_` keys are accepted unless `STRIPE_ALLOW_LIVE_KEYS=true`.
 - **Image uploads** (listing photos, store logos, return photos) need an Amazon S3 bucket and keys, so they don't work locally yet. Everything else does.
 
 ---
