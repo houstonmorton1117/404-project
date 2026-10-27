@@ -14,6 +14,7 @@ from controllers.auth_controller import auth_bp # Updated 3/19/2026 by Ryan Grim
 from controllers.return_controller import returns_bp
 from controllers.checkout_controller import checkout_bp
 from init_db import create_vault_tables
+from utils.payments import get_publishable_key
 
 
 def create_app():
@@ -69,7 +70,8 @@ def create_app():
     def checkout():
         if not session.get("user"):
             return redirect(url_for("auth.login", next=request.path))
-        return render_template('checkout.html')
+        # Stripe.js needs the publishable (browser-safe) key; the secret key never leaves the server.
+        return render_template('checkout.html', stripe_publishable_key=get_publishable_key())
 
     # Route to the Order Confirmation page - Added 4/22/2026
     @app.route('/order-confirmation')

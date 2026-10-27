@@ -4,3 +4,4 @@ python-dotenv
 werkzeug
 boto3
 Flask-WTF
+stripe
