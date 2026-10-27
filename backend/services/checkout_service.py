@@ -14,6 +14,7 @@ from models.checkout_model import (
     get_orders_by_user_id,
     clear_cart_for_user,
     update_listing_size_inventory,
+    update_listing_quantity_inventory,
     remove_purchased_from_wishlist,
     check_listing_availability,
 )
@@ -126,9 +127,12 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
 
         # Made-to-order listings don't track inventory. Stock was validated above, so a failure here
         # means another buyer took the last units between the check and now.
-        if size and not item["is_made_to_order"]:
+        if not item["is_made_to_order"]:
             try:
-                update_listing_size_inventory(item_id, size, quantity)
+                if size:
+                    update_listing_size_inventory(item_id, size, quantity)
+                else:
+                    update_listing_quantity_inventory(item_id, quantity)
             except Exception as e:
                 print(f"[checkout] WARNING inventory update failed for order {confirmation_number}, "
                       f"listing {item_id} size {size}: {e}")

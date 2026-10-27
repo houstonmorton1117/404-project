@@ -286,3 +286,35 @@ def update_listing_size_inventory(listing_id, size, purchased_qty):
     conn.commit()
     cur.close()
     conn.close()
+
+
+def update_listing_quantity_inventory(listing_id, purchased_qty):
+    """Decrements quantity_on_hand for a listing that has no per-size inventory.
+
+    Same guarded, single-statement UPDATE pattern as update_listing_size_inventory,
+    for the WHERE clause to guard against a race: the UPDATE only applies if enough
+    stock is still available at the moment it runs, so two checkouts racing for the
+    last units can't both succeed.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE listings
+        SET quantity_on_hand = quantity_on_hand - %s,
+            status = CASE WHEN quantity_on_hand - %s <= 0 THEN 'SOLD_OUT' ELSE status END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s AND quantity_on_hand >= %s;
+    """, (purchased_qty, purchased_qty, listing_id, purchased_qty))
+    if cur.rowcount == 0:
+        cur.execute("SELECT quantity_on_hand FROM listings WHERE id = %s", (listing_id,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        available = int(row[0]) if row and row[0] is not None else 0
+        raise Exception(
+            f"Insufficient stock for listing {listing_id}: "
+            f"requested {purchased_qty}, available {available}."
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
