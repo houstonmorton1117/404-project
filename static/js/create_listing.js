@@ -282,7 +282,10 @@ document.addEventListener('DOMContentLoaded', function() {
           body: formData,
         });
 
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 413 && !result.error) {
+          result.error = "Images are too large (max 25 MB total).";
+        }
 
         if (response.ok) {
           showListingToast(`Listing "${listingName}" created successfully!`);

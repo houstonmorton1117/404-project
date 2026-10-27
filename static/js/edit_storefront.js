@@ -5,6 +5,7 @@
     CSC 405 Sp 26'
     Created by Day Ekoi - Iteration 5 4/16/2026
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - drag-drop zones, image preview thumbnails, preview_image_1-4 upload + pre-fill, existing preview image display
+    Updated by Jasmine Mark - Iteration 3 - 10/27/26 - edit image upload failure message
 
 Handles the Edit Storefront page:
 - Loads current storefront data and pre-fills the form
@@ -192,8 +193,8 @@ async function uploadImageToS3(file, folder) {
         body: uploadData
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Upload failed");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || (res.status === 413 ? "Image is too large (max 25 MB)." : "Upload failed"));
     return data.url;
 }
 
@@ -286,12 +287,12 @@ async function init() {
 
             if (logoFile) {
                 try { logoUrl = await uploadImageToS3(logoFile, "storefronts/logos"); }
-                catch (err) { alert("Failed to upload logo. Please try again."); return; }
+                catch (err) { alert(`Failed to upload logo: ${err.message}`); return; }
             }
 
             if (bannerFile) {
                 try { bannerUrl = await uploadImageToS3(bannerFile, "storefronts/banners"); }
-                catch (err) { alert("Failed to upload banner. Please try again."); return; }
+                catch (err) { alert(`Failed to upload banner: ${err.message}`); return; }
             }
 
             // upload each preview slot independently, keep existing if no new file - Updated by Day Ekoi 4/20/26
@@ -308,7 +309,7 @@ async function init() {
                     try {
                         previewUrls[i] = await uploadImageToS3(file, "storefronts/previews");
                     } catch (err) {
-                        alert(`Failed to upload preview image ${i + 1}. Please try again.`);
+                        alert(`Failed to upload preview image ${i + 1}: ${err.message}`);
                         return;
                     }
                 }

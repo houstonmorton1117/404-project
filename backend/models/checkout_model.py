@@ -1,30 +1,48 @@
 # The Vault Campus Marketplace
 # CSC 405 Sp 26'
-# Updated by Day Ekoi - 4/22/26 - rewrote to match orders/order_items schema
+# Updated by Jasmine Mark 10/25/26 - New OutOfStockError class and updated checkout flow to handle stock checks and inventory updates.
+
+from contextlib import contextmanager
 
 from db import get_connection
 
 
+@contextmanager
+def _connection(conn=None):
+    """Yields the caller's connection if one was passed in; the caller then commits or rolls back,
+    so several functions can share one all-or-nothing transaction (checkout does this).
+    Otherwise opens a new connection, commits if the work succeeds, and always closes it."""
+    if conn is not None:
+        yield conn
+        return
+    own_conn = get_connection()
+    try:
+        yield own_conn
+        own_conn.commit()
+    except Exception:
+        own_conn.rollback()
+        raise
+    finally:
+        own_conn.close()
+
+
 def create_order(user_id, confirmation_number, buyer_first_name, buyer_last_name,
                  buyer_email, buyer_contact, buyer_meeting_location, total_amount,
-                 card_last4=None, transaction_ref=None, payment_status='PAID', payment_method='CARD'):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO orders (user_id, confirmation_number, buyer_first_name, buyer_last_name,
-                            buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status,
-                            payment_method, card_last4, payment_status, transaction_ref)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'SUBMITTED', %s, %s, %s, %s)
-        RETURNING id, user_id, confirmation_number, buyer_first_name, buyer_last_name,
-                  buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status, created_at,
-                  payment_method, card_last4, payment_status, transaction_ref;
-    """, (user_id, confirmation_number, buyer_first_name, buyer_last_name,
-          buyer_email, buyer_contact, buyer_meeting_location, total_amount,
-          payment_method, card_last4, payment_status, transaction_ref))
-    row = cur.fetchone()
-    conn.commit()
-    cur.close()
-    conn.close()
+                 card_last4=None, transaction_ref=None, payment_status='PAID', payment_method='CARD',
+                 conn=None):
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO orders (user_id, confirmation_number, buyer_first_name, buyer_last_name,
+                                buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status,
+                                payment_method, card_last4, payment_status, transaction_ref)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'SUBMITTED', %s, %s, %s, %s)
+            RETURNING id, user_id, confirmation_number, buyer_first_name, buyer_last_name,
+                      buyer_email, buyer_contact, buyer_meeting_location, total_amount, order_status, created_at,
+                      payment_method, card_last4, payment_status, transaction_ref;
+        """, (user_id, confirmation_number, buyer_first_name, buyer_last_name,
+              buyer_email, buyer_contact, buyer_meeting_location, total_amount,
+              payment_method, card_last4, payment_status, transaction_ref))
+        row = cur.fetchone()
     return {
         "id": row[0],
         "user_id": row[1],
@@ -44,18 +62,15 @@ def create_order(user_id, confirmation_number, buyer_first_name, buyer_last_name
     }
 
 
-def create_order_item(order_id, listing_id, item_name, quantity, price_at_purchase, selected_size=None):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO order_items (order_id, listing_id, item_name, quantity, price_at_purchase, selected_size)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        RETURNING id, order_id, listing_id, item_name, quantity, price_at_purchase, selected_size;
-    """, (order_id, listing_id, item_name, quantity, price_at_purchase, selected_size))
-    row = cur.fetchone()
-    conn.commit()
-    cur.close()
-    conn.close()
+def create_order_item(order_id, listing_id, item_name, quantity, price_at_purchase, selected_size=None,
+                      conn=None):
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO order_items (order_id, listing_id, item_name, quantity, price_at_purchase, selected_size)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, order_id, listing_id, item_name, quantity, price_at_purchase, selected_size;
+        """, (order_id, listing_id, item_name, quantity, price_at_purchase, selected_size))
+        row = cur.fetchone()
     return {
         "id": row[0],
         "order_id": row[1],
@@ -181,14 +196,10 @@ def remove_purchased_from_wishlist(user_id, listing_ids):
     return {"deleted_count": deleted_count}
 
 
-def clear_cart_for_user(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM cart_items WHERE user_id = %s;", (user_id,))
-    deleted_count = cur.rowcount
-    conn.commit()
-    cur.close()
-    conn.close()
+def clear_cart_for_user(user_id, conn=None):
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM cart_items WHERE user_id = %s;", (user_id,))
+        deleted_count = cur.rowcount
     return {"deleted_count": deleted_count}
 
 
@@ -196,14 +207,16 @@ class OutOfStockError(Exception):
     """Raised when a listing can't be added to a cart or purchased in the requested quantity."""
 
 
-def check_listing_availability(listing_id, quantity_requested, size=None):
+def check_listing_availability(listing_id, quantity_requested, size=None, conn=None):
     """Raises OutOfStockError if the listing (or the chosen size) is sold out or has insufficient
-    stock (skipped for made-to-order items). Returns (title, price, is_made_to_order) from the database."""
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
+    stock (skipped for made-to-order items). Returns (title, price, is_made_to_order) from the database.
+
+    When checkout passes in its transaction's conn, the listing row is locked (FOR UPDATE) until that
+    transaction ends, so a second buyer checking out the same listing waits and then sees the updated stock."""
+    lock = " FOR UPDATE" if conn is not None else ""
+    with _connection(conn) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s",
+            "SELECT title, price, status, quantity_on_hand, is_made_to_order FROM listings WHERE id = %s" + lock,
             (listing_id,)
         )
         row = cur.fetchone()
@@ -234,13 +247,10 @@ def check_listing_availability(listing_id, quantity_requested, size=None):
                         f'"{title}" in size {size} only has {available} in stock '
                         f'(you requested {quantity_requested}).'
                     )
-    finally:
-        cur.close()
-        conn.close()
     return title, float(price), bool(is_made_to_order)
 
 
-def update_listing_size_inventory(listing_id, size, purchased_qty):
+def update_listing_size_inventory(listing_id, size, purchased_qty, conn=None):
     """Decrements per-size inventory and syncs listing quantity_on_hand after purchase.
 
     The decrement is done as a single atomic UPDATE guarded by
@@ -251,44 +261,38 @@ def update_listing_size_inventory(listing_id, size, purchased_qty):
     The UPDATE's rowcount tells us whether this specific request actually
     had enough stock at the moment it ran.
     """
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        UPDATE listing_sizes
-        SET quantity = quantity - %s
-        WHERE listing_id = %s AND size = %s AND quantity >= %s;
-    """, (purchased_qty, listing_id, size, purchased_qty))
-    if cur.rowcount == 0:
-        cur.execute(
-            "SELECT quantity FROM listing_sizes WHERE listing_id = %s AND size = %s",
-            (listing_id, size)
-        )
-        size_row = cur.fetchone()
-        cur.close()
-        conn.close()
-        available = int(size_row[0]) if size_row else 0
-        raise Exception(
-            f"Insufficient stock for listing {listing_id} size '{size}': "
-            f"requested {purchased_qty}, available {available}."
-        )
-    cur.execute("""
-        SELECT COALESCE(SUM(quantity), 0) FROM listing_sizes WHERE listing_id = %s;
-    """, (listing_id,))
-    total_qty = int(cur.fetchone()[0])
-    new_status = "SOLD_OUT" if total_qty == 0 else None
-    cur.execute("""
-        UPDATE listings
-        SET quantity_on_hand = %s,
-            status = COALESCE(%s, CASE WHEN status = 'SOLD_OUT' AND %s > 0 THEN 'ACTIVE' ELSE status END),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s AND (is_made_to_order = FALSE OR is_made_to_order IS NULL);
-    """, (total_qty, new_status, total_qty, listing_id))
-    conn.commit()
-    cur.close()
-    conn.close()
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute("""
+            UPDATE listing_sizes
+            SET quantity = quantity - %s
+            WHERE listing_id = %s AND size = %s AND quantity >= %s;
+        """, (purchased_qty, listing_id, size, purchased_qty))
+        if cur.rowcount == 0:
+            cur.execute(
+                "SELECT quantity FROM listing_sizes WHERE listing_id = %s AND size = %s",
+                (listing_id, size)
+            )
+            size_row = cur.fetchone()
+            available = int(size_row[0]) if size_row else 0
+            raise OutOfStockError(
+                f"Insufficient stock for listing {listing_id} size '{size}': "
+                f"requested {purchased_qty}, available {available}."
+            )
+        cur.execute("""
+            SELECT COALESCE(SUM(quantity), 0) FROM listing_sizes WHERE listing_id = %s;
+        """, (listing_id,))
+        total_qty = int(cur.fetchone()[0])
+        new_status = "SOLD_OUT" if total_qty == 0 else None
+        cur.execute("""
+            UPDATE listings
+            SET quantity_on_hand = %s,
+                status = COALESCE(%s, CASE WHEN status = 'SOLD_OUT' AND %s > 0 THEN 'ACTIVE' ELSE status END),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s AND (is_made_to_order = FALSE OR is_made_to_order IS NULL);
+        """, (total_qty, new_status, total_qty, listing_id))
 
 
-def update_listing_quantity_inventory(listing_id, purchased_qty):
+def update_listing_quantity_inventory(listing_id, purchased_qty, conn=None):
     """Decrements quantity_on_hand for a listing that has no per-size inventory.
 
     Same guarded, single-statement UPDATE pattern as update_listing_size_inventory,
@@ -296,25 +300,19 @@ def update_listing_quantity_inventory(listing_id, purchased_qty):
     stock is still available at the moment it runs, so two checkouts racing for the
     last units can't both succeed.
     """
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        UPDATE listings
-        SET quantity_on_hand = quantity_on_hand - %s,
-            status = CASE WHEN quantity_on_hand - %s <= 0 THEN 'SOLD_OUT' ELSE status END,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s AND quantity_on_hand >= %s;
-    """, (purchased_qty, purchased_qty, listing_id, purchased_qty))
-    if cur.rowcount == 0:
-        cur.execute("SELECT quantity_on_hand FROM listings WHERE id = %s", (listing_id,))
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-        available = int(row[0]) if row and row[0] is not None else 0
-        raise Exception(
-            f"Insufficient stock for listing {listing_id}: "
-            f"requested {purchased_qty}, available {available}."
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute("""
+            UPDATE listings
+            SET quantity_on_hand = quantity_on_hand - %s,
+                status = CASE WHEN quantity_on_hand - %s <= 0 THEN 'SOLD_OUT' ELSE status END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s AND quantity_on_hand >= %s;
+        """, (purchased_qty, purchased_qty, listing_id, purchased_qty))
+        if cur.rowcount == 0:
+            cur.execute("SELECT quantity_on_hand FROM listings WHERE id = %s", (listing_id,))
+            row = cur.fetchone()
+            available = int(row[0]) if row and row[0] is not None else 0
+            raise OutOfStockError(
+                f"Insufficient stock for listing {listing_id}: "
+                f"requested {purchased_qty}, available {available}."
+            )

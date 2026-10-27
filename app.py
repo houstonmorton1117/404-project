@@ -24,6 +24,14 @@ def create_app():
     app.secret_key = os.environ['SECRET_KEY'] # Updated 10/26/26 by Obi Achebe
     csrf = CSRFProtect(app) #added by Rochele Solmon
 
+    # Allow image uploads up to 25MB (4 listing photos per request).
+    # Keep in sync with .platform/nginx/conf.d/upload_size.conf
+    app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
+
+    @app.errorhandler(413)
+    def request_too_large(_err):
+        return {"error": "Image is too large. Total upload size must be under 25 MB."}, 413
+
     # Run DB migrations on every startup so new columns are always present
     try:
         from init_db import create_vault_tables
