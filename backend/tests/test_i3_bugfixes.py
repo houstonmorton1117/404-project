@@ -14,6 +14,17 @@ from app import create_app
 from backend.config.db import get_connection
 
 PASSWORD = "pw12345"
+BUYER_DETAILS = {
+    "first_name": "Test",
+    "last_name": "Buyer",
+    "email": "buyer@hamptonu.edu",
+    "contact": "555-0100",
+    "meeting_location": "Library",
+    "cardholder_name": "Test Buyer",
+    "card_number": "4242424242424242",
+    "card_expiry": "12/30",
+    "cvv": "123",
+}
 
 
 class TestI3BugFixes(unittest.TestCase):
@@ -80,6 +91,39 @@ class TestI3BugFixes(unittest.TestCase):
             (listing_id, qty), commit=True,
         )
         return listing_id
+
+    def _make_listing_no_size(self, owner_username, price=25.00, qty=5):
+        """A plain IN_STOCK listing with no listing_sizes rows, the configuration
+        that update_listing_quantity_inventory's regression test exercises."""
+        owner_id = self._query("SELECT id FROM users WHERE username = %s", (owner_username,))[0][0]
+        storefront_id = self._query(
+            "INSERT INTO storefronts (owner_id, brand_name) VALUES (%s, %s) RETURNING id",
+            (owner_id, f"Store {self.tag}"), commit=True,
+        )[0][0]
+        listing_id = self._query(
+            """INSERT INTO listings (storefront_id, title, price, fulfillment_type, quantity_on_hand, status)
+               VALUES (%s, 'Test Item (No Size)', %s, 'IN_STOCK', %s, 'ACTIVE') RETURNING id""",
+            (storefront_id, price, qty), commit=True,
+        )[0][0]
+        return listing_id
+
+    def test_checkout_decrements_inventory_for_listing_with_no_sizes(self):
+        """A listing with no listing_sizes rows (the common case for most listings)
+        used to never have quantity_on_hand decremented after a purchase, since the
+        inventory update only ran when the cart item had a size. Covers the fix in
+        update_listing_quantity_inventory."""
+        owner = self._signup_and_login("i3_nosize_owner")
+        listing_id = self._make_listing_no_size(owner, qty=3)
+        buyer = self._signup_and_login("i3_nosize_buyer")
+
+        self.client.post("/auth/add_to_cart", data={"item_id": listing_id, "quantity": 2})
+        response = self.client.post("/api/checkout/complete", json=BUYER_DETAILS)
+        self.assertEqual(response.status_code, 200, response.get_json())
+
+        qty_on_hand = self._query(
+            "SELECT quantity_on_hand FROM listings WHERE id = %s", (listing_id,)
+        )[0][0]
+        self.assertEqual(qty_on_hand, 1)
 
     def test_remove_from_cart_deletes_correct_row_among_duplicates(self):
         owner = self._signup_and_login("i3_owner")
