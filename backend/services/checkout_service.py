@@ -1,11 +1,12 @@
 # The Vault Campus Marketplace
-# CSC 405 Sp 26'
-# Updated by Day Ekoi - 4/22/26
+# Modified by Jasmine Mark 10/25/26 - Checkout now uses one databse connection and failed stock update cancels the entire transaction. Added OutOfStockError class to handle stock issues.
+# Edited By Saffie C. Oct 27
 
 import random
 import string
 from datetime import datetime
 
+from db import get_connection
 from models.checkout_model import (
     create_order,
     create_order_item,
@@ -19,6 +20,10 @@ from models.checkout_model import (
     check_listing_availability,
 )
 from utils.payments import process_simulated_payment, PaymentError
+
+
+class CheckoutError(Exception):
+    """A checkout problem the buyer should see (empty cart, missing details, declined card)."""
 
 
 def _generate_confirmation_number():
@@ -35,7 +40,7 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     session_cart items: { id, name, price, quantity, size }
     """
     if not session_cart:
-        raise Exception("Cart is empty.")
+        raise CheckoutError("Cart is empty.")
 
     # Each add-to-cart appends a line, so total the quantity per listing/size before checking stock.
     requested = {}
@@ -43,17 +48,42 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
         item_id = item.get("id")
         quantity = int(item.get("quantity", 1))
         if not item_id:
-            raise Exception("Your cart contains an invalid item. Please remove it and try again.")
+            raise CheckoutError("Your cart contains an invalid item. Please remove it and try again.")
         if quantity < 1:
-            raise Exception("Item quantities must be at least 1.")
+            raise CheckoutError("Item quantities must be at least 1.")
         key = (int(item_id), item.get("size"))
         requested[key] = requested.get(key, 0) + quantity
 
+    # Everything from the stock check to clearing the cart runs in one transaction on one connection:
+    # either the order, its items, the stock decrease, and the cleared cart are all saved, or none are.
+    conn = get_connection()
+    try:
+        result = _complete_transaction(conn, user_id, session_cart, buyer_details, requested)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    # Wishlist cleanup is a nice-to-have, so it runs after the commit and can't undo a completed purchase.
+    purchased_listing_ids = [item["listing_id"] for item in result["order_items"]]
+    try:
+        remove_purchased_from_wishlist(user_id, purchased_listing_ids)
+    except Exception as e:
+        print(f"[checkout] wishlist cleanup failed: {e}")
+
+    return result
+
+
+def _complete_transaction(conn, user_id, session_cart, buyer_details, requested):
+    """Runs the checkout steps on the caller's connection without committing."""
     # Validate availability and re-price every item from the database; cart prices are display-only.
-    # This runs before the order is created so a sold-out item stops the checkout.
+    # Each listing row stays locked until the transaction ends, so a second buyer for the same listing
+    # waits here and then sees the reduced stock. Locking in listing-id order prevents deadlocks.
     listing_info = {}
-    for (item_id, size), quantity in requested.items():
-        listing_info[item_id] = check_listing_availability(item_id, quantity, size)
+    for (item_id, size), quantity in sorted(requested.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")):
+        listing_info[item_id] = check_listing_availability(item_id, quantity, size, conn=conn)
 
     priced_items = []
     for item in session_cart:
@@ -74,7 +104,7 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     meeting_location = (buyer_details.get("meeting_location") or "").strip()
 
     if not all([first_name, last_name, email, contact, meeting_location]):
-        raise Exception("All buyer details are required.")
+        raise CheckoutError("All buyer details are required.")
 
     total_amount = round(sum(item["price"] * item["quantity"] for item in priced_items), 2)
 
@@ -89,7 +119,7 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
             amount=total_amount,
         )
     except PaymentError as e:
-        raise Exception(str(e))
+        raise CheckoutError(str(e))
 
     confirmation_number = _generate_confirmation_number()
 
@@ -105,6 +135,7 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
         card_last4=payment_result["card_last4"],
         transaction_ref=payment_result["transaction_ref"],
         payment_status=payment_result["status"],
+        conn=conn,
     )
 
     order_items = []
@@ -122,29 +153,19 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
             quantity=quantity,
             price_at_purchase=price,
             selected_size=size,
+            conn=conn,
         )
         order_items.append(order_item)
 
-        # Made-to-order listings don't track inventory. Stock was validated above, so a failure here
-        # means another buyer took the last units between the check and now.
+        # Made-to-order listings don't track inventory. If the stock decrease fails, the error
+        # propagates and the whole checkout is rolled back, so the buyer never gets a confirmation.
         if not item["is_made_to_order"]:
-            try:
-                if size:
-                    update_listing_size_inventory(item_id, size, quantity)
-                else:
-                    update_listing_quantity_inventory(item_id, quantity)
-            except Exception as e:
-                print(f"[checkout] WARNING inventory update failed for order {confirmation_number}, "
-                      f"listing {item_id} size {size}: {e}")
+            if size:
+                update_listing_size_inventory(item_id, size, quantity, conn=conn)
+            else:
+                update_listing_quantity_inventory(item_id, quantity, conn=conn)
 
-    clear_cart_for_user(user_id)
-
-    # Remove purchased listings from the user's wishlist
-    purchased_listing_ids = [item["id"] for item in priced_items]
-    try:
-        remove_purchased_from_wishlist(user_id, purchased_listing_ids)
-    except Exception as e:
-        print(f"[checkout] wishlist cleanup failed: {e}")
+    clear_cart_for_user(user_id, conn=conn)
 
     return {
         "confirmation_number": confirmation_number,

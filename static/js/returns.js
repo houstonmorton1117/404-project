@@ -2,6 +2,8 @@
     returns.js
 
     Handles return form interactions and submission.
+
+    Updated by Jasmine Mark - 10/27/26
 */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -123,9 +125,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: formData
             });
 
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(result.error || "Failed to submit return.");
+                throw new Error(result.error || (response.status === 413
+                    ? "Damage image is too large (max 25 MB)."
+                    : "Failed to submit return."));
             }
 
             form.reset();
