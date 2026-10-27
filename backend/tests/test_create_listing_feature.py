@@ -28,6 +28,7 @@ class TestCreateListingFeature(unittest.TestCase):
     def setUpClass(cls):
         cls.app = create_app()
         cls.app.config["TESTING"] = True
+        cls.app.config["WTF_CSRF_ENABLED"] = False
         if get_connection() is None:
             raise unittest.SkipTest("Database not available.")
 

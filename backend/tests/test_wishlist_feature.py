@@ -19,6 +19,7 @@ class TestWishlistFeature(unittest.TestCase):
     def setUpClass(cls):
         cls.app = create_app()
         cls.app.config["TESTING"] = True
+        cls.app.config["WTF_CSRF_ENABLED"] = False
         cls.client = cls.app.test_client()
         cls.user_id, cls.listing_id = cls._resolve_test_ids()
 
