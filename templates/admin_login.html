@@ -1,131 +1,87 @@
-<!-- Admin Login Page - Created by David Jackson 4/18/26 -->
+<!-- Admin Login Page - Created by David Jackson 4/18/26, Showtime theatrical redesign by Houston Morton -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Showtime | Admin Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        body, html {
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #0a1830; overflow: hidden;
-            font-family: 'Segoe UI', sans-serif;
-            display: flex; justify-content: center; align-items: center;
-        }
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
 
-        .vault-wrapper {
-            position: relative;
+        .stage {
             width: 100vw; height: 100vh;
-            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
-            display: flex; justify-content: center; align-items: center;
+            background:
+                radial-gradient(ellipse 55% 45% at 50% 32%, rgba(255, 244, 214, 0.10), transparent 70%),
+                var(--stage-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        .auth-card {
-            background: rgba(10, 24, 48, 0.88);
-            border: 1px solid #B8860B;
-            padding: 45px;
+        .ticket-card {
+            padding: 42px 40px;
             width: 360px;
-            border-radius: 2px;
-            box-shadow: 0 0 30px rgba(184, 134, 11, 0.4);
             text-align: center;
-            z-index: 10;
+            z-index: 5;
         }
 
-        .auth-card h2 {
-            color: white;
-            letter-spacing: 5px;
-            margin-bottom: 35px;
-            font-size: 2.8vh;
-            font-weight: bold;
+        .ticket-card h2 {
+            font-size: 2.2rem;
+            margin: 0 0 6px;
+            color: var(--navy-deep);
         }
-
-        .input-group { margin-bottom: 25px; text-align: left; }
-
-        .input-group label {
-            color: #B8860B;
-            font-size: 1.3vh;
+        .ticket-card .kicker {
+            color: var(--gold);
+            background: var(--ink);
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 2px;
+            font-size: 0.68rem;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            display: block;
-            margin-bottom: 8px;
-            letter-spacing: 1px;
+            margin-bottom: 18px;
         }
 
-        .input-group input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(184, 134, 11, 0.4);
-            padding: 14px;
-            color: white;
-            box-sizing: border-box;
-            outline: none;
-            font-size: 1.8vh;
-        }
-
-        .input-group input:focus { 
-            border-color: #B8860B; 
-            background: rgba(255, 255, 255, 0.1); 
-            box-shadow: inset 0 0 5px rgba(184, 134, 11, 0.2);
-        }
-
-        .submit-btn {
-            width: 100%;
-            background: linear-gradient(135deg, #B8860B, #9A7107);
-            border: none;
-            padding: 16px;
-            color: #0a1830;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 15px;
-        }
-
-        .submit-btn:hover {
-            filter: brightness(1.2);
-            letter-spacing: 4px;
-            box-shadow: 0 0 15px rgba(184, 134, 11, 0.6);
-        }
+        .submit-btn { width: 100%; margin-top: 6px; }
 
         .footer-links {
-            margin-top: 25px;
+            margin-top: 22px;
             display: flex;
             justify-content: space-between;
-            font-size: 1.3vh;
+            font-size: 0.75rem;
         }
-
         .footer-links a {
-            color: rgba(204, 178, 128, 0.5);
+            color: rgba(34, 26, 22, 0.55);
             text-decoration: none;
-            transition: 0.2s;
+            font-family: 'Inter', sans-serif;
+            transition: color 0.2s;
         }
-
-        .footer-links a:hover { color: #B8860B; }
+        .footer-links a:hover { color: var(--navy-deep); }
     </style>
 </head>
 <body>
-    <div class="vault-wrapper">
-        <div class="auth-card">
-            <h2>ADMIN ACCESS</h2>
+    <div class="stage">
+        <div class="card-stage ticket-card">
+            <span class="kicker">Staff Only</span>
+            <h2 class="marquee-title">ADMIN ACCESS</h2>
 
             <form action="{{ url_for('auth.admin_login') }}" method="POST">
                 <!-- CSRF protection added by Rochele Solmon -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="input-group">
+                <div class="field-group">
                     <label>Admin Username</label>
                     <input type="text" name="username" required placeholder="admin" autofocus>
                 </div>
-
-                <div class="input-group">
+                <div class="field-group">
                     <label>Admin Password</label>
                     <input type="password" name="password" required placeholder="••••••••">
                 </div>
-
-                <button type="submit" class="submit-btn">Authorize</button>
+                <button type="submit" class="submit-btn btn-ticket">Authorize</button>
             </form>
 
             <div class="footer-links">
-                <a href="{{ url_for('auth.login') }}">← User Login</a>
+                <a href="{{ url_for('auth.login') }}">&larr; User Login</a>
                 <a href="{{ url_for('index') }}">Portal</a>
             </div>
         </div>

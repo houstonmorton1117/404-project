@@ -1,119 +1,86 @@
-<!-- Created 3/21/2026 by Ryan Grimes-->  
+<!-- Created 3/21/2026 by Ryan Grimes, Showtime theatrical redesign by Houston Morton -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Showtime | Create Account</title>
+    <title>Showtime | Reserve a Seat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        body, html {
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #0a1830; overflow: hidden;
-            font-family: 'Segoe UI', sans-serif;
-            display: flex; justify-content: center; align-items: center;
-        }
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
 
-        .vault-wrapper {
-            position: relative;
+        .stage {
             width: 100vw; height: 100vh;
-            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
-            display: flex; justify-content: center; align-items: center;
+            background:
+                radial-gradient(ellipse 55% 45% at 50% 32%, rgba(255, 244, 214, 0.10), transparent 70%),
+                var(--stage-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* Metallic Glass Form Panel */
-        .auth-card {
-            background: rgba(10, 24, 48, 0.85);
-            border: 1px solid #B8860B;
-            padding: 40px;
-            width: 350px;
-            border-radius: 2px;
-            box-shadow: 0 0 25px rgba(184, 134, 11, 0.3);
+        .ticket-card {
+            padding: 40px 38px;
+            width: 360px;
             text-align: center;
-            z-index: 10;
+            z-index: 5;
         }
 
-        .auth-card h2 {
-            color: white;
-            letter-spacing: 4px;
-            margin-bottom: 30px;
-            font-size: 2.5vh;
+        .ticket-card h2 {
+            font-size: 2.2rem;
+            margin: 0 0 6px;
+            color: var(--navy-deep);
         }
-
-        .input-group { margin-bottom: 20px; text-align: left; }
-
-        .input-group label {
-            color: #B8860B;
-            font-size: 1.2vh;
+        .ticket-card .kicker {
+            color: var(--gold);
+            background: var(--ink);
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 2px;
+            font-size: 0.68rem;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            display: block;
-            margin-bottom: 5px;
+            margin-bottom: 18px;
         }
 
-        .input-group input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(184, 134, 11, 0.5);
-            padding: 12px;
-            color: white;
-            box-sizing: border-box;
-            outline: none;
-        }
-
-        .input-group input:focus { border-color: #B8860B; background: rgba(255, 255, 255, 0.1); }
-
-        /* Match the metallic button feel */
-        .submit-btn {
-            width: 100%;
-            background: linear-gradient(145deg, #B8860B, #8B6508);
-            border: none;
-            padding: 15px;
-            color: #0a1830;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            cursor: pointer;
-            transition: 0.3s;
-            margin-top: 10px;
-        }
-
-        .submit-btn:hover {
-            filter: brightness(1.2);
-            transform: translateY(-2px);
-        }
+        .submit-btn { width: 100%; margin-top: 6px; }
 
         .back-link {
             display: block;
             margin-top: 20px;
-            color: rgba(204, 178, 128, 0.6);
-            font-size: 1.3vh;
+            color: rgba(34, 26, 22, 0.55);
+            font-size: 0.75rem;
             text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            transition: color 0.2s;
         }
-
-        .back-link:hover { color: #B8860B; }
+        .back-link:hover { color: var(--navy-deep); }
     </style>
 </head>
 <body>
-    <div class="vault-wrapper">
-        <div class="auth-card">
-            <h2>INITIALIZE ACCESS</h2>
+    <div class="stage">
+        <div class="card-stage ticket-card">
+            <span class="kicker">Will Call</span>
+            <h2 class="marquee-title">CREATE YOUR ACCOUNT</h2>
+
             <form action="{{ url_for('auth.signup') }}" method="POST">
                 <!-- CSRF protection added by Rochele Solmon -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="input-group">
-                    <label>Designation (Username)</label>
+                <div class="field-group">
+                    <label>Username</label>
                     <input type="text" name="username" required placeholder="User_01">
                 </div>
-                <div class="input-group">
-                    <label>Neural Link (Email)</label>
+                <div class="field-group">
+                    <label>Email</label>
                     <input type="email" name="email" required placeholder="email@example.com">
                 </div>
-                <div class="input-group">
-                    <label>Security Cipher (Password)</label>
+                <div class="field-group">
+                    <label>Password</label>
                     <input type="password" name="password" required placeholder="••••••••">
                 </div>
-                <button type="submit" class="submit-btn">Create Identity</button>
+                <button type="submit" class="submit-btn btn-ticket">Join the Show</button>
             </form>
-            <a href="{{ url_for('index') }}" class="back-link">Return to Portal</a>
+            <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Lobby</a>
         </div>
     </div>
 </body>
