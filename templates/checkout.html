@@ -1,6 +1,7 @@
 <!--
 Created by Kaila Roberts 3/23/26
 Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error display
+Updated 10/27/26 - card number/expiry/CVV inputs replaced with a Stripe-hosted card field (tokenized payments)
 -->
 
 <!DOCTYPE html>
@@ -12,6 +13,9 @@ Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error displ
 
     <!-- CSRF protection added by Rochele Solmon -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Stripe publishable key: safe to show in the page, it can only create payment tokens -->
+    <meta name="stripe-publishable-key" content="{{ stripe_publishable_key }}">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">
@@ -66,20 +70,17 @@ Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error displ
                     <input type="text" id="cardholderName" placeholder="Name on card" required>
                 </div>
                 <div class="input-group">
-                    <label>Card Number</label>
-                    <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" inputmode="numeric" maxlength="19" required>
+                    <label>Card Details</label>
+                    <!-- Stripe.js puts a secure card field here (number, expiry and CVC). What is typed
+                         into it goes straight to Stripe, never to our server; checkout.js only gets
+                         back a payment token (pm_...) to send with the order. -->
+                    <div id="cardElement" class="stripe-card-field"></div>
+                    <div id="cardErrors" class="card-errors" role="alert"></div>
                 </div>
-                <div class="input-group" style="display:flex; gap:12px;">
-                    <div style="flex:1;">
-                        <label>Expiration (MM/YY)</label>
-                        <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" required>
-                    </div>
-                    <div style="flex:1;">
-                        <label>CVV</label>
-                        <input type="text" id="cardCvv" placeholder="123" inputmode="numeric" maxlength="4" required>
-                    </div>
-                </div>
-                <p class="helper-text" style="margin-top:8px; font-size:0.8rem;">Payments are processed through Showtime. No real card is charged in this environment.</p>
+                <p class="helper-text" style="margin-top:8px; font-size:0.8rem;">Card payments are handled securely by Stripe. Your card number never reaches Showtime's servers.</p>
+                {% if stripe_publishable_key.startswith('pk_test_') %}
+                <p class="helper-text" style="font-size:0.8rem;">Test mode: no real card is charged. Use 4242 4242 4242 4242 with any future date and any CVC.</p>
+                {% endif %}
             </form>
         </section>
 
@@ -96,6 +97,8 @@ Updated by Day Ekoi 4/22/26 - wired to checkout.js, added field IDs, error displ
         </aside>
     </main>
 
+    <!-- Stripe.js must be loaded from js.stripe.com (not copied into /static) for card data to stay with Stripe -->
+    <script src="https://js.stripe.com/v3/"></script>
     <script src="{{ url_for('static', filename='js/checkout.js') }}"></script>
 </body>
 </html>
