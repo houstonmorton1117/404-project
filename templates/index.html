@@ -1,165 +1,121 @@
-<!-- Created 3/19/2026 by Ryan Grimes-->  
-
+<!-- Created 3/19/2026 by Ryan Grimes, Showtime theatrical redesign by Houston Morton -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Showtime | Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        /* Index.html was made on 3/19/2026 by Ryan Grimes */
-
-        
-        /* Locks the screen */
-        body, html {
+        html, body {
             margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #0a1830; overflow: hidden;
-            font-family: 'Segoe UI', sans-serif;
-            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
         }
 
-        /* Background layer */
-        .vault-wrapper {
+        .stage {
             position: relative;
             width: 100vw;
             height: 100vh;
-            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+            background:
+                radial-gradient(ellipse 60% 45% at 50% 38%, rgba(255, 244, 214, 0.10), transparent 70%),
+                var(--stage-bg);
             display: flex;
             flex-direction: column;
             align-items: center;
-        }
-
-        /* The logo  */
-        /* Locks the logo position in place regardless if it's in full screen */
-        .logo-container {
-            position: absolute;
-            top: 43.5%;    /* Increase to move DOWN, Decrease to move UP */
-            left: 50.75%;   /* Increase to move RIGHT, Decrease to move LEFT */
-            
-            transform: translate(-53%, -50%); 
-            z-index: 1; /* Sits behind the "The Vault" text */
-        }
-
-        .logo-container img {
-            height: 48vh; /* Scales with screen height */
-            width: auto;
-        }
-
-        /* 4. The text and buttons layer */
-        .bottom-section {
-            position: absolute;
-            bottom: 10vh; 
-            width: 100%;
-            text-align: center;
-            z-index: 10; /* Makes sure it always stays in front of the logo */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .main-title {
-            color: white; 
-            font-size: 9vh; 
-            font-weight: bold; 
-            margin: 0; 
-            line-height: 0.8;
-            text-shadow: 0 4px 15px rgba(10, 24, 48,0.9);
-        }
-
-        .sub-title {
-            color: #B8860B; 
-            font-size: 3vh; 
-            margin-top: 0.5vh; 
-            letter-spacing: 4px;
-            font-weight: 500;
-        }
-
-        /* 5. METALLIC BUTTONS */
-        .button-row {
-            display: flex; 
-            justify-content: center; 
-            gap: 8vw; 
-            margin-top: 4vh;
-            width: 100%;
-        }
-
-        .metallic-btn {
-            background: none; 
-            border: none; 
-            cursor: pointer; 
-            width: 22vw; 
-            max-width: 260px; 
-            padding: 0;
-            transition: transform 0.2s ease;
-        }
-
-        .metallic-btn:hover { 
-            transform: scale(1.05); 
-            filter: brightness(1.2);
-        }
-
-        .metallic-btn img { width: 100%; height: auto; }
-
-        /* Loading Bar */
-        .footer-area { 
-            width: 50%; 
-            margin-top: 5vh; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-        }
-
-        progress { 
-            width: 100%; 
-            height: 8px; 
-            accent-color: #B8860B; 
-            background: #2a4570; 
-            border-radius: 10px; 
-        }
-
-        /* For centered progress styling */
-        progress::-webkit-progress-bar { background-color: #2a4570; border-radius: 10px; }
-        progress::-webkit-progress-value { background-color: #B8860B; border-radius: 10px; }
-
-        .footer-text { 
-            color: rgba(204,178,128,0.5); 
-            font-size: 1.6vh; 
-            margin-top: 8px; 
-            letter-spacing: 1px;
+            justify-content: center;
         }
 
         .portal-header {
             position: absolute;
-            top: 5vh;
-            color: rgba(204, 178, 128, 0.7);
-            font-size: 2vh;
+            top: 6vh;
+            color: var(--gold-dim);
+            font-size: 1.5vh;
             font-style: italic;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
             text-transform: uppercase;
+            z-index: 5;
         }
+
+        /* Two searchlight beams crossing behind the title, like spotlights
+           sweeping the sky above a premiere. */
+        .searchlights {
+            position: absolute;
+            top: 2vh;
+            left: 50%;
+            width: 0;
+            height: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .beam {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 240px;
+            height: 56vh;
+            background: linear-gradient(180deg, rgba(206, 176, 78, 0) 0%, rgba(206, 176, 78, 0.22) 55%, rgba(206, 176, 78, 0) 100%);
+            clip-path: polygon(48% 0%, 52% 0%, 100% 100%, 0% 100%);
+            transform-origin: top center;
+            mix-blend-mode: screen;
+        }
+
+        .beam-left { transform: translateX(-100%) rotate(-13deg); }
+        .beam-right { transform: translateX(0%) rotate(13deg); }
+
+        .marquee-wrap {
+            position: relative;
+            text-align: center;
+            z-index: 5;
+        }
+
+        .main-title {
+            font-size: 11vh;
+            line-height: 0.85;
+            margin: 0;
+            background: linear-gradient(180deg, var(--gold-bright), var(--gold) 55%, #9a7a1f);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 40px rgba(212, 175, 55, 0.35);
+        }
+
+        .sub-title {
+            color: var(--cream);
+            opacity: 0.85;
+            font-size: 2.2vh;
+            margin-top: 1vh;
+            letter-spacing: 5px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: center;
+            gap: 4vw;
+            margin-top: 5vh;
+            z-index: 5;
+        }
+
     </style>
 </head>
 <body>
-    <div class="vault-wrapper">
-        <div class="portal-header">YOU HAVE ARRIVED AT THE PORTAL TO...</div>
+    <div class="stage">
+        <div class="portal-header">You have arrived at the portal to...</div>
 
-        <div class="bottom-section">
-            <h1 class="main-title">SHOWTIME</h1>
+        <div class="searchlights" aria-hidden="true">
+            <span class="beam beam-left"></span>
+            <span class="beam beam-right"></span>
+        </div>
+
+        <div class="marquee-wrap spotlight-glow">
+            <h1 class="main-title marquee-title">SHOWTIME</h1>
             <div class="sub-title">FASHION MARKETPLACE</div>
+        </div>
 
-            <div class="button-row">
-                <a href="{{ url_for('auth.login') }}" class="metallic-btn">
-                    <img src="/static/images/login_button.png" alt="Log In">
-                </a>
-                <a href="{{ url_for('auth.signup') }}" class="metallic-btn">
-                    <img src="/static/images/signup_button.png" alt="Sign Up">
-                </a>
-            </div>
-
-            <div class="footer-area">
-                <progress value="88" max="100"></progress>
-                <div class="footer-text">LOADING SECURE MARKETS... 1868%</div>
-            </div>
+        <div class="button-row">
+            <a href="{{ url_for('auth.login') }}" class="btn-ticket">Log In</a>
+            <a href="{{ url_for('auth.signup') }}" class="btn-ticket-outline">Sign Up</a>
         </div>
     </div>
 </body>

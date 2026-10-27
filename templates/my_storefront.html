@@ -28,6 +28,7 @@ It is different from the public storefront page because this version is meant fo
     <title>Storefront Dashboard</title>
     <!-- CSRF protection added by Rochele Solmon -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/my_storefront.css') }}">
 </head>
 

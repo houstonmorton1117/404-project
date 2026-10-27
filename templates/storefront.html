@@ -40,6 +40,7 @@ Start of Code w/ comments
   <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <!-- ensures the screensize is consistent on different types of devices -->
   <title>Showtime | Storefronts</title> <!-- Simple, this is the Title of the page -->
 
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/storefront.css') }}" /> <!-- Updated by Day E 3/22/26 -->
 </head> <!-- end of head -->
 
@@ -92,10 +93,10 @@ Start of Code w/ comments
 
   <!-- Main navigation -->
   <div class="nav-section">
-    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">Explore Brands <span>→</span></a>
-    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">All Categories <span>→</span></a>
-    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">New Drops <span>→</span></a>
-    <a href="{{ url_for('storefront_pages_bp.storefront_home_page') }}" class="nav-item">Hot! <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.explore_brands_page') }}" class="nav-item">Explore Brands <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.all_categories_page') }}" class="nav-item">All Categories <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.new_drops_page') }}" class="nav-item">New Drops <span>→</span></a>
+    <a href="{{ url_for('storefront_pages_bp.hot_page') }}" class="nav-item">Hot! <span>→</span></a>
   </div>
 
   <!-- extras -->
