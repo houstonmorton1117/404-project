@@ -225,7 +225,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                             method: "PATCH",
                             headers: {
                                 "X-User-Id": currentUser.id,
-                                "X-User-Role": currentUser.role
+                                "X-User-Role": currentUser.role,
+                                // CSRF protection added by Rochele Solmon
+                                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                                    || document.querySelector('input[name="csrf_token"]')?.value
                             }
                         });
                         const result = await response.json().catch(() => ({}));
@@ -251,7 +254,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                             method: "DELETE",
                             headers: {
                                 "X-User-Id": currentUser.id,
-                                "X-User-Role": currentUser.role
+                                "X-User-Role": currentUser.role,
+                                // CSRF protection added by Rochele Solmon
+                                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                                    || document.querySelector('input[name="csrf_token"]')?.value
                             }
                         });
                         const result = await response.json().catch(() => ({}));
@@ -277,6 +283,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const response = await fetch("/api/storefronts/upload-image", {
             method: "POST",
+            headers: {
+                // CSRF protection added by Rochele Solmon
+                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                    || document.querySelector('input[name="csrf_token"]')?.value
+            },
             body: formData
         });
         const data = await response.json().catch(() => ({}));
@@ -302,7 +313,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 headers: {
                     "Content-Type": "application/json",
                     "X-User-Id": currentUser.id,
-                    "X-User-Role": currentUser.role
+                    "X-User-Role": currentUser.role,
+                    // CSRF protection added by Rochele Solmon
+                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                        || document.querySelector('input[name="csrf_token"]')?.value
                 },
                 body: JSON.stringify({
                     image_url: imageUrl,
@@ -464,7 +478,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 headers: {
                     "Content-Type": "application/json",
                     "X-User-Id": currentUser.id,
-                    "X-User-Role": currentUser.role
+                    "X-User-Role": currentUser.role,
+                    // CSRF protection added by Rochele Solmon
+                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                        || document.querySelector('input[name="csrf_token"]')?.value
                 },
                 body: JSON.stringify({
                     title,
@@ -491,7 +508,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     headers: {
                         "Content-Type": "application/json",
                         "X-User-Id": currentUser.id,
-                        "X-User-Role": currentUser.role
+                        "X-User-Role": currentUser.role,
+                        // CSRF protection added by Rochele Solmon
+                        "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                            || document.querySelector('input[name="csrf_token"]')?.value
                     },
                     body: JSON.stringify({ size, quantity: sizeQuantities[size] || 0 })
                 });
@@ -503,7 +523,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     method: "DELETE",
                     headers: {
                         "X-User-Id": currentUser.id,
-                        "X-User-Role": currentUser.role
+                        "X-User-Role": currentUser.role,
+                        // CSRF protection added by Rochele Solmon
+                        "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                            || document.querySelector('input[name="csrf_token"]')?.value
                     }
                 });
             }

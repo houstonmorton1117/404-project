@@ -1,4 +1,12 @@
-// File Created By David Jackson
+/* File Created By David Jackson */
+
+// XSS protection added by Rochele Solmon
+// Display values as text instead of interpreting them as HTML.
+function addTextCell(row, value) {
+    const cell = document.createElement("td");
+    cell.textContent = value ?? "";
+    row.appendChild(cell);
+}
 
 // USERS SECTION
 
@@ -7,28 +15,30 @@
  * Calls: GET /admin/users
  */
 async function loadUsers() {
-    const response = await fetch('/admin/users'); // API request
-    const users = await response.json(); // Convert response to JSON
+    const response = await fetch('/admin/users');
+    const users = await response.json();
 
     const table = document.querySelector('#usersTable tbody');
-    table.innerHTML = ""; // Clear existing rows
+    table.replaceChildren();
 
-    // Loop through users and create table rows
     users.forEach(user => {
-        const row = `
-            <tr>
-                <td>${user.id}</td>
-                <td>${user.username || ""}</td>
-                <td>${user.email}</td>
-                <td>${user.role || "user"}</td>
-                <td>${user.created_at || ""}</td>
-                <td>
-                    <!-- Delete button calls deleteUser() -->
-                    <button class="delete" onclick="deleteUser(${user.id})">Delete</button>
-                </td>
-            </tr>
-        `;
-        table.innerHTML += row;
+        const row = document.createElement("tr");
+
+        addTextCell(row, user.id);
+        addTextCell(row, user.username || "");
+        addTextCell(row, user.email);
+        addTextCell(row, user.role || "user");
+        addTextCell(row, user.created_at || "");
+
+        const actionCell = document.createElement("td");
+        const button = document.createElement("button");
+        button.className = "delete";
+        button.textContent = "Delete";
+        button.addEventListener("click", () => deleteUser(user.id));
+        actionCell.appendChild(button);
+        row.appendChild(actionCell);
+
+        table.appendChild(row);
     });
 }
 
@@ -37,11 +47,15 @@ async function loadUsers() {
  * Calls: DELETE /admin/users/<id>
  */
 async function deleteUser(userId) {
-    await fetch(`/admin/users/${userId}`, {
-        method: 'DELETE'
+    await fetch(`/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+        headers: {
+            // CSRF protection added by Rochele Solmon
+            "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="csrf_token"]')?.value
+        }
     });
 
-    // Reload users after deletion
     loadUsers();
 }
 
@@ -57,25 +71,29 @@ async function loadListings() {
     const listings = await response.json();
 
     const table = document.querySelector('#listingsTable tbody');
-    table.innerHTML = "";
+    table.replaceChildren();
 
     listings.forEach(listing => {
-        const row = `
-            <tr>
-                <td>${listing.id}</td>
-                <td>${listing.storefront_id}</td>
-                <td>${listing.title}</td>
-                <td>${listing.price}</td>
-                <td>${listing.quantity_on_hand}</td>
-                <td>${listing.status || "ACTIVE"}</td>
-                <td>${listing.fulfillment_type || ""}</td>
-                <td>${listing.created_at || ""}</td>
-                <td>
-                    <button class="delete" onclick="deleteListing(${listing.id})">Delete</button>
-                </td>
-            </tr>
-        `;
-        table.innerHTML += row;
+        const row = document.createElement("tr");
+
+        addTextCell(row, listing.id);
+        addTextCell(row, listing.storefront_id);
+        addTextCell(row, listing.title);
+        addTextCell(row, listing.price);
+        addTextCell(row, listing.quantity_on_hand);
+        addTextCell(row, listing.status || "ACTIVE");
+        addTextCell(row, listing.fulfillment_type || "");
+        addTextCell(row, listing.created_at || "");
+
+        const actionCell = document.createElement("td");
+        const button = document.createElement("button");
+        button.className = "delete";
+        button.textContent = "Delete";
+        button.addEventListener("click", () => deleteListing(listing.id));
+        actionCell.appendChild(button);
+        row.appendChild(actionCell);
+
+        table.appendChild(row);
     });
 }
 
@@ -84,11 +102,15 @@ async function loadListings() {
  * Calls: DELETE /admin/listings/<id>
  */
 async function deleteListing(listingId) {
-    await fetch(`/admin/listings/${listingId}`, {
-        method: 'DELETE'
+    await fetch(`/admin/listings/${encodeURIComponent(listingId)}`, {
+        method: 'DELETE',
+        headers: {
+            // CSRF protection added by Rochele Solmon
+            "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="csrf_token"]')?.value
+        }
     });
 
-    // Reload listings after deletion
     loadListings();
 }
 
@@ -104,21 +126,24 @@ async function loadStorefronts() {
     const stores = await response.json();
 
     const table = document.querySelector('#storefrontsTable tbody');
-    table.innerHTML = "";
+    table.replaceChildren();
 
     stores.forEach(store => {
-        const row = `
-            <tr>
-                <td>${store.id}</td>
-                <td>${store.brand_name || store.name || ""}</td>
-                <td>${store.owner_id}</td>
-                <td>
-                    <!-- Delete storefront button -->
-                    <button class="delete" onclick="deleteStorefront(${store.id})">Delete</button>
-                </td>
-            </tr>
-        `;
-        table.innerHTML += row;
+        const row = document.createElement("tr");
+
+        addTextCell(row, store.id);
+        addTextCell(row, store.brand_name || store.name || "");
+        addTextCell(row, store.owner_id);
+
+        const actionCell = document.createElement("td");
+        const button = document.createElement("button");
+        button.className = "delete";
+        button.textContent = "Delete";
+        button.addEventListener("click", () => deleteStorefront(store.id));
+        actionCell.appendChild(button);
+        row.appendChild(actionCell);
+
+        table.appendChild(row);
     });
 }
 
@@ -127,11 +152,15 @@ async function loadStorefronts() {
  * Calls: DELETE /admin/storefronts/<id>
  */
 async function deleteStorefront(storeId) {
-    await fetch(`/admin/storefronts/${storeId}`, {
-        method: 'DELETE'
+    await fetch(`/admin/storefronts/${encodeURIComponent(storeId)}`, {
+        method: 'DELETE',
+        headers: {
+            // CSRF protection added by Rochele Solmon
+            "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="csrf_token"]')?.value
+        }
     });
 
-    // Reload storefronts after deletion
     loadStorefronts();
 }
 
@@ -143,38 +172,93 @@ async function loadReturns() {
     const returns = await response.json();
 
     const table = document.querySelector('#returnsTable tbody');
-    table.innerHTML = "";
+    table.replaceChildren();
 
     returns.forEach(item => {
         const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${item.id}</td>
-            <td>${item.username || ""}<br><small>${item.email || ""}</small></td>
-            <td>${item.order_number}</td>
-            <td>${item.has_damage ? "Yes" : "No"}</td>
-            <td>${item.damage_image_url ? `<a href="${item.damage_image_url}" target="_blank">View</a>` : "—"}</td>
-            <td>
-                <select data-return-id="${item.id}">
-                    <option value="pending" ${item.status === "pending" ? "selected" : ""}>Pending</option>
-                    <option value="reviewed" ${item.status === "reviewed" ? "selected" : ""}>Reviewed</option>
-                    <option value="resolved" ${item.status === "resolved" ? "selected" : ""}>Resolved</option>
-                </select>
-                <button onclick="saveReturnStatus(${item.id})">Save</button>
-            </td>
-            <td>${item.reason}</td>
-        `;
+
+        addTextCell(row, item.id);
+
+        const userCell = document.createElement("td");
+        userCell.appendChild(document.createTextNode(item.username || ""));
+
+        const email = document.createElement("small");
+        email.textContent = item.email || "";
+        userCell.appendChild(document.createElement("br"));
+        userCell.appendChild(email);
+        row.appendChild(userCell);
+
+        addTextCell(row, item.order_number);
+        addTextCell(row, item.has_damage ? "Yes" : "No");
+
+        const imageCell = document.createElement("td");
+
+        // Added by Rochele Solmon: only allow safe HTTP(S) image links.
+        if (item.damage_image_url) {
+            try {
+                const imageUrl = new URL(item.damage_image_url, window.location.origin);
+
+                if (imageUrl.protocol === "https:" || imageUrl.protocol === "http:") {
+                    const link = document.createElement("a");
+                    link.href = imageUrl.href;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+                    link.textContent = "View";
+                    imageCell.appendChild(link);
+                } else {
+                    imageCell.textContent = "Unavailable";
+                }
+            } catch {
+                imageCell.textContent = "Unavailable";
+            }
+        } else {
+            imageCell.textContent = "—";
+        }
+
+        row.appendChild(imageCell);
+
+        const statusCell = document.createElement("td");
+        const select = document.createElement("select");
+        select.dataset.returnId = item.id;
+
+        // Added by Rochele Solmon: build options safely without HTML interpolation.
+        ["pending", "reviewed", "resolved"].forEach(status => {
+            const option = document.createElement("option");
+            option.value = status;
+            option.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            option.selected = item.status === status;
+            select.appendChild(option);
+        });
+
+        statusCell.appendChild(select);
+
+        const button = document.createElement("button");
+        button.textContent = "Save";
+        button.addEventListener("click", () => saveReturnStatus(item.id));
+        statusCell.appendChild(button);
+
+        row.appendChild(statusCell);
+
+        addTextCell(row, item.reason);
+
         table.appendChild(row);
     });
 }
 
 async function saveReturnStatus(returnId) {
-    const select = document.querySelector(`select[data-return-id="${returnId}"]`);
+    const select = document.querySelector(
+        `select[data-return-id="${CSS.escape(String(returnId))}"]`
+    );
+
     if (!select) return;
 
-    const response = await fetch(`/admin/returns/${returnId}`, {
+    const response = await fetch(`/admin/returns/${encodeURIComponent(returnId)}`, {
         method: "PATCH",
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            // CSRF protection added by Rochele Solmon
+            "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="csrf_token"]')?.value
         },
         body: JSON.stringify({ status: select.value })
     });

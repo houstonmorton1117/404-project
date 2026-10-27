@@ -9,20 +9,46 @@
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - fixed wishlistIds undefined crash and isWishlisted undefined in createListingCard
     Updated by Day E - April 22nd - multi-image listing display, lightbox preview, and contain-based image handling
 
-Description:
-This file handles the functionality for the public storefront view page.
-Fetches real storefront and listing data from the Flask API using the
-storefront ID from the URL. Renders storefront banner, logo, description,
-and listing cards dynamically.
+    Description:
+    This file handles the functionality for the public storefront view page.
+    Fetches real storefront and listing data from the Flask API using the
+    storefront ID from the URL. Renders storefront banner, logo, description,
+    and listing cards dynamically.
 
-Works with:
-- storefront_view.html
-- storefront_view.css
+    Works with:
+    - storefront_view.html
+    - storefront_view.css
 */
 
 const storefrontId = window.location.pathname.split("/").pop();
 const AUTH_ME_ENDPOINT = "/auth/api/auth/me";
 const LISTING_IMAGE_FALLBACK = "/static/images/placeholder-storefront.png";
+
+// XSS protection added by Rochele Solmon: escape values before placing them in HTML.
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[character]);
+}
+
+// XSS protection added by Rochele Solmon: reject unsafe URL protocols.
+function getSafeUrl(value, fallback = LISTING_IMAGE_FALLBACK) {
+    if (!value) return fallback;
+
+    try {
+        const url = new URL(String(value), window.location.origin);
+
+        if (url.protocol === "http:" || url.protocol === "https:") {
+            return url.href;
+        }
+    } catch (_error) {}
+
+    return fallback;
+}
 
 const pageTitle = document.getElementById("pageTitle");
 const contactInfo = document.getElementById("contactInfo");
@@ -38,6 +64,7 @@ const lightboxPrev = document.getElementById("lightboxPrev");
 const lightboxNext = document.getElementById("lightboxNext");
 
 const listingImagesCache = new Map();
+
 const lightboxState = {
     images: [],
     index: 0
@@ -45,18 +72,21 @@ const lightboxState = {
 
 function ensureToastRoot() {
     let root = document.getElementById("cartToastRoot");
+
     if (!root) {
         root = document.createElement("div");
         root.id = "cartToastRoot";
         root.className = "cart-toast-root";
         document.body.appendChild(root);
     }
+
     return root;
 }
 
 function showCartToast(message, tone = "success") {
     const root = ensureToastRoot();
     const toast = document.createElement("div");
+
     toast.className = `cart-toast ${tone === "error" ? "error" : "success"}`;
     toast.textContent = message;
     root.appendChild(toast);
@@ -69,11 +99,14 @@ function showCartToast(message, tone = "success") {
 
 function toNumericPrice(priceValue) {
     if (typeof priceValue === "number") return priceValue;
+
     if (typeof priceValue === "string") {
         const cleaned = priceValue.replace(/\$/g, "").trim();
         const parsed = Number(cleaned);
+
         if (!Number.isNaN(parsed)) return parsed;
     }
+
     return 0;
 }
 
@@ -87,6 +120,7 @@ function parseSizesFromListing(item) {
     if (typeof source === "string" && source.trim()) {
         try {
             const parsed = JSON.parse(source);
+
             if (Array.isArray(parsed)) {
                 return parsed.map((size) => String(size).trim()).filter(Boolean);
             }
@@ -103,17 +137,20 @@ function parseSizesFromListing(item) {
 
 async function getListingSizeOptions(listingId, item) {
     const inlineSizes = parseSizesFromListing(item);
+
     if (inlineSizes.length > 0) {
         return inlineSizes;
     }
 
     try {
         const response = await fetch(`/api/listings/${listingId}/sizes`);
+
         if (!response.ok) {
             return [];
         }
 
         const data = await response.json();
+
         if (!Array.isArray(data)) {
             return [];
         }
@@ -134,15 +171,17 @@ async function fetchListingImages(listingId, fallbackImageUrl) {
 
     try {
         const response = await fetch(`/api/listings/${listingId}/images`);
+
         if (!response.ok) {
             throw new Error("Unable to load listing images.");
         }
 
         const images = await response.json();
+
         const normalized = Array.isArray(images)
             ? images
                 .map((image) => String(image.image_url || "").trim())
-                .filter(Boolean)
+                .filter((url) => url && getSafeUrl(url, "") !== "")
                 .slice(0, 4)
             : [];
 
@@ -154,7 +193,10 @@ async function fetchListingImages(listingId, fallbackImageUrl) {
         console.error(`Unable to load images for listing ${listingId}:`, error);
     }
 
-    const fallback = [fallbackImageUrl || LISTING_IMAGE_FALLBACK];
+    const fallback = [
+        getSafeUrl(fallbackImageUrl, LISTING_IMAGE_FALLBACK)
+    ];
+
     listingImagesCache.set(listingId, fallback);
     return fallback;
 }
@@ -179,13 +221,20 @@ function setLocalWishlistItems(items) {
     }));
 
     localStorage.setItem("vaultWishlistLocalItems", JSON.stringify(normalized));
-    localStorage.setItem("vaultWishlistListingIds", JSON.stringify(normalized.map((item) => String(item.listing_id))));
+    localStorage.setItem(
+        "vaultWishlistListingIds",
+        JSON.stringify(normalized.map((item) => String(item.listing_id)))
+    );
 }
 
 function addLocalWishlistItem(item) {
     const items = getLocalWishlistItems();
     const listingId = String(item.listing_id || item.id);
-    const filtered = items.filter((existing) => String(existing.listing_id || existing.id) !== listingId);
+
+    const filtered = items.filter(
+        (existing) => String(existing.listing_id || existing.id) !== listingId
+    );
+
     filtered.unshift({
         listing_id: Number(listingId),
         title: item.title || item.name || "Untitled Listing",
@@ -193,24 +242,31 @@ function addLocalWishlistItem(item) {
         image_url: item.image_url || "/static/images/logo.png",
         storefront_name: item.storefront_name || pageTitle?.textContent || "Storefront"
     });
+
     setLocalWishlistItems(filtered);
 }
 
 function removeLocalWishlistItem(listingId) {
-    const updated = getLocalWishlistItems().filter((item) => String(item.listing_id || item.id) !== String(listingId));
+    const updated = getLocalWishlistItems().filter(
+        (item) => String(item.listing_id || item.id) !== String(listingId)
+    );
+
     setLocalWishlistItems(updated);
 }
 
 async function getCurrentSessionUser() {
     try {
         const response = await fetch(AUTH_ME_ENDPOINT);
+
         if (!response.ok) return null;
 
         const user = await response.json();
+
         if (user && user.id) {
             localStorage.setItem("vaultUserId", String(user.id));
             sessionStorage.setItem("vaultUserId", String(user.id));
         }
+
         return user;
     } catch (error) {
         console.error("Unable to determine current user:", error);
@@ -236,33 +292,50 @@ async function getWishlistIdSet(userId) {
 
         const data = await response.json();
         const wishlistItems = Array.isArray(data.wishlist) ? data.wishlist : [];
+
         setLocalWishlistItems(wishlistItems);
 
-        return new Set(wishlistItems.map((item) => String(item.listing_id || item.id)));
+        return new Set(
+            wishlistItems.map((item) => String(item.listing_id || item.id))
+        );
     } catch (error) {
         console.error("Unable to load wishlist ids:", error);
-        return new Set(getLocalWishlistItems().map((item) => String(item.listing_id || item.id)));
+
+        return new Set(
+            getLocalWishlistItems().map((item) => String(item.listing_id || item.id))
+        );
     }
 }
 
 function renderEmpty(message) {
-    listingGrid.innerHTML = `<p style="color:#c9c9c9; font-style:italic; text-align:center; grid-column: 1/-1;">${message}</p>`;
-}
+    // XSS protection added by Rochele Solmon: show messages as text, not HTML.
+    const paragraph = document.createElement("p");
 
+    paragraph.style.color = "#c9c9c9";
+    paragraph.style.fontStyle = "italic";
+    paragraph.style.textAlign = "center";
+    paragraph.style.gridColumn = "1/-1";
+    paragraph.textContent = message;
+
+    listingGrid.replaceChildren(paragraph);
+}
 function updateDots(container, images, activeIndex, dotClassName, onSelect) {
     if (!container) return;
 
-    container.innerHTML = "";
+    container.replaceChildren();
+
     if (!Array.isArray(images) || images.length <= 1) {
         return;
     }
 
     images.forEach((_image, index) => {
         const dot = document.createElement("button");
+
         dot.type = "button";
         dot.className = `${dotClassName} ${index === activeIndex ? "active" : ""}`;
         dot.setAttribute("aria-label", `Go to image ${index + 1}`);
         dot.addEventListener("click", () => onSelect(index));
+
         container.appendChild(dot);
     });
 }
@@ -271,10 +344,12 @@ function renderLightbox() {
     if (!lightbox || !lightboxImage) return;
 
     const { images, index } = lightboxState;
+
     if (!images.length) return;
 
-    lightboxImage.src = images[index];
+    lightboxImage.src = getSafeUrl(images[index]);
     lightboxImage.alt = `Listing image ${index + 1}`;
+
     updateDots(lightboxDots, images, index, "lightbox-dot", (nextIndex) => {
         lightboxState.index = nextIndex;
         renderLightbox();
@@ -283,6 +358,7 @@ function renderLightbox() {
     if (lightboxPrev) {
         lightboxPrev.style.display = images.length > 1 ? "inline-flex" : "none";
     }
+
     if (lightboxNext) {
         lightboxNext.style.display = images.length > 1 ? "inline-flex" : "none";
     }
@@ -290,22 +366,30 @@ function renderLightbox() {
 
 function openLightbox(images, startIndex = 0) {
     if (!lightbox || !Array.isArray(images) || !images.length) return;
+
     lightboxState.images = images;
     lightboxState.index = startIndex;
+
     renderLightbox();
+
     lightbox.classList.add("is-open");
     document.body.style.overflow = "hidden";
 }
 
 function closeLightbox() {
     if (!lightbox) return;
+
     lightbox.classList.remove("is-open");
     document.body.style.overflow = "";
 }
 
 function shiftLightbox(step) {
     if (!lightboxState.images.length) return;
-    lightboxState.index = (lightboxState.index + step + lightboxState.images.length) % lightboxState.images.length;
+
+    lightboxState.index =
+        (lightboxState.index + step + lightboxState.images.length) %
+        lightboxState.images.length;
+
     renderLightbox();
 }
 
@@ -326,8 +410,9 @@ function createListingImageCarousel(images, title) {
     let currentIndex = 0;
 
     const render = () => {
-        image.src = images[currentIndex];
+        image.src = getSafeUrl(images[currentIndex]);
         counter.textContent = `${currentIndex + 1}/${images.length}`;
+
         updateDots(dots, images, currentIndex, "listing-image-dot", (nextIndex) => {
             currentIndex = nextIndex;
             render();
@@ -335,15 +420,18 @@ function createListingImageCarousel(images, title) {
     };
 
     image.addEventListener("click", () => openLightbox(images, currentIndex));
+
     shell.classList.add("is-clickable");
     shell.appendChild(image);
 
     if (images.length > 1) {
         const prevBtn = document.createElement("button");
+
         prevBtn.type = "button";
         prevBtn.className = "listing-image-nav listing-image-nav--left";
         prevBtn.setAttribute("aria-label", "Previous image");
-        prevBtn.innerHTML = "&#10094;";
+        prevBtn.textContent = "❮";
+
         prevBtn.addEventListener("click", (event) => {
             event.stopPropagation();
             currentIndex = (currentIndex - 1 + images.length) % images.length;
@@ -351,10 +439,12 @@ function createListingImageCarousel(images, title) {
         });
 
         const nextBtn = document.createElement("button");
+
         nextBtn.type = "button";
         nextBtn.className = "listing-image-nav listing-image-nav--right";
         nextBtn.setAttribute("aria-label", "Next image");
-        nextBtn.innerHTML = "&#10095;";
+        nextBtn.textContent = "❯";
+
         nextBtn.addEventListener("click", (event) => {
             event.stopPropagation();
             currentIndex = (currentIndex + 1) % images.length;
@@ -368,7 +458,11 @@ function createListingImageCarousel(images, title) {
     }
 
     render();
-    return { shell, getPrimaryImage: () => images[0] || LISTING_IMAGE_FALLBACK };
+
+    return {
+        shell,
+        getPrimaryImage: () => images[0] || LISTING_IMAGE_FALLBACK
+    };
 }
 
 async function createListingCard(item, wishlistIds, currentUserId) {
@@ -378,29 +472,46 @@ async function createListingCard(item, wishlistIds, currentUserId) {
     const listingId = Number(item.id || item.listing_id);
     const title = item.title || item.name || "Untitled Listing";
     const numericPrice = toNumericPrice(item.price);
+
     const price = typeof item.price === "string" && item.price.includes("$")
         ? item.price
         : `$${numericPrice.toFixed(2)}`;
+
     const images = await fetchListingImages(listingId, item.image_url);
     const primaryImageUrl = images[0] || item.image_url || LISTING_IMAGE_FALLBACK;
     const isWishlisted = wishlistIds.has(String(listingId));
+
     const sizeOptions = await getListingSizeOptions(listingId, item);
     const hasSizes = sizeOptions.length > 0;
-    const isOneSizeItem = hasSizes && sizeOptions.length === 1 && sizeOptions[0] === "One Size";
+
+    const isOneSizeItem =
+        hasSizes && sizeOptions.length === 1 && sizeOptions[0] === "One Size";
+
     const isMadeToOrder = Boolean(item.is_made_to_order);
-    const maxQuantity = isMadeToOrder ? 999 : (item.quantity_on_hand || 1);
-    const isSoldOut = !isMadeToOrder && (item.status === "SOLD_OUT" || item.quantity_on_hand === 0);
+    const quantityValue = Number(item.quantity_on_hand);
+
+    const maxQuantity = isMadeToOrder
+        ? 999
+        : (Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1);
+
+    const isSoldOut = !isMadeToOrder &&
+        (item.status === "SOLD_OUT" || item.quantity_on_hand === 0);
 
     let sizeFieldMarkup;
+
     if (isOneSizeItem) {
         sizeFieldMarkup = `
             <label class="field-label">Size</label>
             <span class="one-size-label" style="color:#d4af37;font-weight:600;padding:0.2rem 0;">One Size</span>
         `;
     } else if (hasSizes) {
+        // XSS protection added by Rochele Solmon: escape sizes before HTML insertion.
         const sizeOptionsMarkup = sizeOptions
-            .map((size, index) => `<option value="${size}" ${index === 0 ? "selected" : ""}>${size}</option>`)
+            .map((size, index) =>
+                `<option value="${escapeHTML(size)}" ${index === 0 ? "selected" : ""}>${escapeHTML(size)}</option>`
+            )
             .join("");
+
         sizeFieldMarkup = `
             <label class="field-label" for="sizeSelect-${listingId}">Size</label>
             <select id="sizeSelect-${listingId}" class="size-select">${sizeOptionsMarkup}</select>
@@ -408,7 +519,9 @@ async function createListingCard(item, wishlistIds, currentUserId) {
     } else {
         sizeFieldMarkup = `
             <label class="field-label">Size</label>
-            <select class="size-select" disabled><option value="" disabled selected>No sizes available</option></select>
+            <select class="size-select" disabled>
+                <option value="" disabled selected>No sizes available</option>
+            </select>
         `;
     }
 
@@ -416,21 +529,26 @@ async function createListingCard(item, wishlistIds, currentUserId) {
         ? `<span class="made-to-order-badge" style="display:inline-block;background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.5);color:#d4af37;font-size:0.7rem;font-weight:700;letter-spacing:0.5px;padding:0.15rem 0.45rem;border-radius:999px;text-transform:uppercase;margin-top:2px;">Made to Order</span>`
         : "";
 
+    // XSS protection added by Rochele Solmon: escape descriptions before HTML insertion.
     const descriptionMarkup = item.description
-        ? `<p class="listing-description">${item.description}</p>`
+        ? `<p class="listing-description">${escapeHTML(item.description)}</p>`
         : "";
 
     const carousel = createListingImageCarousel(images, title);
 
+    // XSS protection added by Rochele Solmon: escape backend text before HTML insertion.
     card.innerHTML = `
         <div class="listing-info">
             <div class="listing-copy">
-                <span class="item-name">${title}</span>
-                <span class="item-price">${price}</span>
+                <span class="item-name">${escapeHTML(title)}</span>
+                <span class="item-price">${escapeHTML(price)}</span>
                 ${madeToOrderBadge}
             </div>
             <div class="listing-actions">
-                <button class="wishlist-lock-btn ${isWishlisted ? "active" : ""}" type="button" aria-label="${isWishlisted ? "Remove from wishlist" : "Add to wishlist"}" title="${isWishlisted ? "Remove from wishlist" : "Add to wishlist"}">
+                <button class="wishlist-lock-btn ${isWishlisted ? "active" : ""}"
+                    type="button"
+                    aria-label="${isWishlisted ? "Remove from wishlist" : "Add to wishlist"}"
+                    title="${isWishlisted ? "Remove from wishlist" : "Add to wishlist"}">
                     <svg viewBox="0 0 24 24" class="wishlist-lock-icon" aria-hidden="true">
                         <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/>
                         <rect x="8.5" y="11" width="7" height="5.8" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -444,7 +562,9 @@ async function createListingCard(item, wishlistIds, currentUserId) {
             <div class="purchase-fields">
                 ${sizeFieldMarkup}
                 <label class="field-label" for="countInput-${listingId}">Count</label>
-                <input id="countInput-${listingId}" class="count-input" type="number" min="1" max="${maxQuantity}" step="1" value="1" inputmode="numeric">
+                <input id="countInput-${listingId}" class="count-input"
+                    type="number" min="1" max="${maxQuantity}" step="1"
+                    value="1" inputmode="numeric">
             </div>
             ${isSoldOut
                 ? `<span class="sold-out-label" style="display:block;width:100%;padding:0.6rem 1rem;background:#3a3a3a;color:#888888;font-size:0.85rem;font-weight:600;text-align:center;border-radius:6px;cursor:not-allowed;letter-spacing:0.5px;box-sizing:border-box;">Sold Out</span>`
@@ -456,6 +576,7 @@ async function createListingCard(item, wishlistIds, currentUserId) {
     card.prepend(carousel.shell);
 
     const wishlistBtn = card.querySelector(".wishlist-lock-btn");
+
     wishlistBtn.addEventListener("click", async () => {
         if (!currentUserId) {
             alert("Please log in to add items to your wishlist.");
@@ -467,27 +588,45 @@ async function createListingCard(item, wishlistIds, currentUserId) {
         const isActive = wishlistBtn.classList.contains("active");
 
         try {
-            const response = await fetch(isActive ? `/api/wishlist/${listingId}` : "/api/wishlist", {
-                method: isActive ? "DELETE" : "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-User-Id": String(currentUserId)
-                },
-                body: isActive ? undefined : JSON.stringify({ listing_id: listingId })
-            });
+            const response = await fetch(
+                isActive ? `/api/wishlist/${listingId}` : "/api/wishlist",
+                {
+                    method: isActive ? "DELETE" : "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-User-Id": String(currentUserId),
+
+                        // CSRF protection added by Rochele Solmon
+                        "X-CSRFToken":
+                            document.querySelector('meta[name="csrf-token"]')?.content
+                            || document.querySelector('input[name="csrf_token"]')?.value
+                    },
+                    body: isActive ? undefined : JSON.stringify({ listing_id: listingId })
+                }
+            );
 
             const result = await response.json().catch(() => ({}));
-            if (!response.ok && !(response.status === 400 && /already in wishlist/i.test(result.error || ""))) {
+
+            if (!response.ok &&
+                !(response.status === 400 && /already in wishlist/i.test(result.error || ""))) {
                 throw new Error(result.error || "Unable to update wishlist.");
             }
 
             const nextState = !isActive;
+
             wishlistBtn.classList.toggle("active", nextState);
-            wishlistBtn.setAttribute("aria-label", nextState ? "Remove from wishlist" : "Add to wishlist");
-            wishlistBtn.setAttribute("title", nextState ? "Remove from wishlist" : "Add to wishlist");
+            wishlistBtn.setAttribute(
+                "aria-label",
+                nextState ? "Remove from wishlist" : "Add to wishlist"
+            );
+            wishlistBtn.setAttribute(
+                "title",
+                nextState ? "Remove from wishlist" : "Add to wishlist"
+            );
 
             if (nextState) {
                 wishlistIds.add(String(listingId));
+
                 addLocalWishlistItem({
                     listing_id: listingId,
                     title,
@@ -506,8 +645,7 @@ async function createListingCard(item, wishlistIds, currentUserId) {
             wishlistBtn.disabled = false;
         }
     });
-
-    const sizeSelect = card.querySelector(".size-select");
+     const sizeSelect = card.querySelector(".size-select");
     const countInput = card.querySelector(".count-input");
     const addToCartBtn = card.querySelector(".add-to-cart-btn");
 
@@ -519,9 +657,14 @@ async function createListingCard(item, wishlistIds, currentUserId) {
                 return;
             }
 
-            const selectedSize = isOneSizeItem ? "One Size" : (sizeSelect ? sizeSelect.value : "");
+            const selectedSize = isOneSizeItem
+                ? "One Size"
+                : (sizeSelect ? sizeSelect.value : "");
+
             const selectedCount = Number.parseInt(countInput.value, 10);
-            const effectiveMax = isMadeToOrder ? Number.POSITIVE_INFINITY : (item.quantity_on_hand || 1);
+            const effectiveMax = isMadeToOrder
+                ? Number.POSITIVE_INFINITY
+                : (item.quantity_on_hand || 1);
 
             if (!selectedSize) {
                 showCartToast("Please select a size.", "error");
@@ -535,7 +678,10 @@ async function createListingCard(item, wishlistIds, currentUserId) {
             }
 
             if (!isMadeToOrder && selectedCount > effectiveMax) {
-                showCartToast(`Maximum available quantity is ${effectiveMax}.`, "error");
+                showCartToast(
+                    `Maximum available quantity is ${effectiveMax}.`,
+                    "error"
+                );
                 countInput.value = String(effectiveMax);
                 return;
             }
@@ -544,26 +690,43 @@ async function createListingCard(item, wishlistIds, currentUserId) {
 
             try {
                 const formData = new FormData();
+
                 formData.append("item_id", String(listingId));
                 formData.append("quantity", String(selectedCount));
                 formData.append("size", selectedSize);
 
+                // CSRF protection added by Rochele Solmon
+                const csrfToken =
+                    document.querySelector('meta[name="csrf-token"]')?.content
+                    || document.querySelector('input[name="csrf_token"]')?.value;
+
                 const response = await fetch("/auth/add_to_cart", {
                     method: "POST",
+                    headers: {
+                        // CSRF protection added by Rochele Solmon
+                        "X-CSRFToken": csrfToken
+                    },
                     body: formData,
                     redirect: "follow"
                 });
 
                 if (!response.ok) {
                     let errorMsg = "Unable to add item to cart right now.";
+
                     try {
                         const errData = await response.json();
-                        if (errData && errData.error) errorMsg = errData.error;
-                    } catch (_) {}
+
+                        if (errData && errData.error) {
+                            errorMsg = errData.error;
+                        }
+                    } catch (_error) {}
+
                     throw new Error(errorMsg);
                 }
 
-                showCartToast(`${title} (${selectedSize}) x${selectedCount} added to cart.`);
+                showCartToast(
+                    `${title} (${selectedSize}) x${selectedCount} added to cart.`
+                );
             } catch (error) {
                 console.error("Add to cart failed:", error);
                 showCartToast(error.message || "Unable to add to cart.", "error");
@@ -578,30 +741,51 @@ async function createListingCard(item, wishlistIds, currentUserId) {
 
 async function loadStorefrontView() {
     let storefront;
+
     try {
         const sfRes = await fetch(`/api/storefronts/${storefrontId}`);
-        if (!sfRes.ok) throw new Error("Storefront not found");
+
+        if (!sfRes.ok) {
+            throw new Error("Storefront not found");
+        }
+
         storefront = await sfRes.json();
     } catch (error) {
         console.error("Error loading storefront:", error);
-        if (pageTitle) pageTitle.textContent = "Storefront Unavailable";
-        storeDescription.textContent = "Could not load storefront details. Please try again.";
+
+        if (pageTitle) {
+            pageTitle.textContent = "Storefront Unavailable";
+        }
+
+        storeDescription.textContent =
+            "Could not load storefront details. Please try again.";
+
         renderEmpty("Could not load listings.");
         return;
     }
 
-    if (pageTitle) pageTitle.textContent = storefront.brand_name || "Unnamed Storefront";
-    storeDescription.textContent = storefront.bio || storefront.description || "No description provided.";
+    if (pageTitle) {
+        pageTitle.textContent = storefront.brand_name || "Unnamed Storefront";
+    }
+
+    storeDescription.textContent =
+        storefront.bio || storefront.description || "No description provided.";
+
     contactInfo.textContent = storefront.contact_info || "";
 
     if (storefront.logo_url) {
-        storefrontLogo.src = storefront.logo_url;
+        storefrontLogo.src = getSafeUrl(storefront.logo_url);
         storefrontLogo.style.display = "block";
         logoFallback.style.display = "none";
     }
 
     if (storefront.banner_url) {
-        document.getElementById("storefrontBanner").style.backgroundImage = `url('${storefront.banner_url}')`;
+        // XSS protection added by Rochele Solmon: validate URL before using it.
+        const bannerUrl = getSafeUrl(storefront.banner_url);
+
+        document.getElementById("storefrontBanner").style.backgroundImage =
+            `url("${bannerUrl.replace(/["\\]/g, "")}")`;
+
         document.getElementById("storefrontBanner").style.backgroundSize = "cover";
         document.getElementById("storefrontBanner").style.backgroundPosition = "center";
     }
@@ -610,13 +794,24 @@ async function loadStorefrontView() {
     const wishlistIds = await getWishlistIdSet(sessionUser?.id || null);
 
     try {
-        const listRes = await fetch(`/api/storefronts/${storefrontId}/listings`);
-        if (!listRes.ok) throw new Error("Could not load listings");
+        const listRes = await fetch(
+            `/api/storefronts/${storefrontId}/listings`
+        );
+
+        if (!listRes.ok) {
+            throw new Error("Could not load listings");
+        }
+
         const listings = await listRes.json();
 
-        listingGrid.innerHTML = "";
+        listingGrid.replaceChildren();
+
         const activeListings = Array.isArray(listings)
-            ? listings.filter((item) => item.status !== "DELETED" && item.status !== "INACTIVE")
+            ? listings.filter(
+                (item) =>
+                    item.status !== "DELETED" &&
+                    item.status !== "INACTIVE"
+            )
             : [];
 
         if (!activeListings.length) {
@@ -625,8 +820,15 @@ async function loadStorefrontView() {
         }
 
         const cards = await Promise.all(
-            activeListings.map((item) => createListingCard(item, wishlistIds, sessionUser?.id || null))
+            activeListings.map((item) =>
+                createListingCard(
+                    item,
+                    wishlistIds,
+                    sessionUser?.id || null
+                )
+            )
         );
+
         cards.forEach((card) => listingGrid.appendChild(card));
     } catch (error) {
         console.error("Error loading listings:", error);
@@ -656,6 +858,7 @@ if (lightbox) {
 
 document.addEventListener("keydown", (event) => {
     if (!lightbox || !lightbox.classList.contains("is-open")) return;
+
     if (event.key === "Escape") {
         closeLightbox();
     } else if (event.key === "ArrowLeft") {
@@ -665,4 +868,4 @@ document.addEventListener("keydown", (event) => {
     }
 });
 
-loadStorefrontView();
+loadStorefrontView(); 

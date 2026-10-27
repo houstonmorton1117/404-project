@@ -1,6 +1,7 @@
 import sys
 import os
 from flask import Flask, render_template, redirect, url_for, session, request
+from flask_wtf.csrf import CSRFProtect #Added by rochele solmon
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))) # Updated 3/19/2026 by Ryan Grimes
 
@@ -21,6 +22,7 @@ def create_app():
                 static_folder='static')
 
     app.secret_key = os.environ['SECRET_KEY'] # Updated 10/26/26 by Obi Achebe
+    csrf = CSRFProtect(app) #added by Rochele Solmon
 
     # Run DB migrations on every startup so new columns are always present
     try:

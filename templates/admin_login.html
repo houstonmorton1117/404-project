@@ -109,6 +109,8 @@
             <h2>ADMIN ACCESS</h2>
 
             <form action="{{ url_for('auth.admin_login') }}" method="POST">
+                <!-- CSRF protection added by Rochele Solmon -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="input-group">
                     <label>Admin Username</label>
                     <input type="text" name="username" required placeholder="admin" autofocus>

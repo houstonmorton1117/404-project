@@ -131,6 +131,8 @@
         <div class="auth-card">
             <h2>DECRYPT ACCESS</h2>
             <form action="{{ url_for('auth.login') }}" method="POST">
+                <!-- CSRF protection added by Rochele Solmon -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
                 <div class="input-group">
                     <label>Identity (Username)</label>

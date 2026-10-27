@@ -115,7 +115,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
                 headers: {
                     "X-User-Id": user.id,
-                    "X-User-Role": user.role
+                    "X-User-Role": user.role,
+                    // CSRF protection added by Rochele Solmon
+                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                        || document.querySelector('input[name="csrf_token"]')?.value
                 },
                 body: formData
             });

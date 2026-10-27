@@ -1,17 +1,17 @@
 /*
-create_listing.js
+    create_listing.js
 
-The Vault Campus Marketplace
-CSC 405 Sp 26
-Created by Elali McNair - Iteration 4
-Updated by Day Ekoi - Iteration 5 4/9/26
-Updated by Day Ekoi - Iteration 5 4/22/26 - One Size mode, per-size quantities, Made-to-Order
+    The Vault Campus Marketplace
+    CSC 405 Sp 26
+    Created by Elali McNair - Iteration 4
+    Updated by Day Ekoi - Iteration 5 4/9/26
+    Updated by Day Ekoi - Iteration 5 4/22/26 - One Size mode, per-size quantities, Made-to-Order
 
-Purpose:
-Handles form submission for Create Listing page. Supports:
-- One Size mode (single quantity, no other sizes selectable)
-- Multi-size mode (per-size quantity inputs)
-- Made-to-Order flag (bypasses inventory limits)
+    Purpose:
+    Handles form submission for Create Listing page. Supports:
+    - One Size mode (single quantity, no other sizes selectable)
+    - Multi-size mode (per-size quantity inputs)
+    - Made-to-Order flag (bypasses inventory limits)
 */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -274,7 +274,10 @@ document.addEventListener('DOMContentLoaded', function() {
           method: "POST",
           headers: {
             "X-User-Id": user.id,
-            "X-User-Role": user.role
+            "X-User-Role": user.role,
+            // CSRF protection added by Rochele Solmon
+            "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+              || document.querySelector('input[name="csrf_token"]')?.value
           },
           body: formData,
         });

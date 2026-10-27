@@ -36,7 +36,9 @@ This file acts as the UI structure (skeleton) of the Create Storefront feature.
 
     <!-- Page title shown in browser tab -->
     <title>Create Storefront</title>
-
+    <!-- CSRF protection added by Rochele Solmon -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
     <!-- live server version 
     <link rel="stylesheet" href="./create_storefront.css"> -->
 
