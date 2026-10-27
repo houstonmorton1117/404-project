@@ -9,13 +9,14 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order Confirmed | Showtime</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        :root { --gold: #B8860B; --gold-light: #d4af37; }
+        :root { --gold: #ceb04e; --gold-light: #e8ca7c; }
 
         body {
-            background: radial-gradient(circle, rgba(212,175,55,0.35) 1.6px, transparent 1.6px) 0 0/34px 34px, repeating-linear-gradient(90deg, transparent 0 32px, rgba(212,175,55,0.07) 32px 34px), linear-gradient(180deg, #102447 0%, #0a1830 100%);
+            background: var(--stage-bg);
             color: white;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
             margin: 0;
             min-height: 100vh;
         }
@@ -27,9 +28,9 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
         }
 
         .conf-card {
-            background: rgba(10, 24, 48, 0.88);
-            border: 1px solid rgba(184, 134, 11, 0.6);
-            box-shadow: 0 0 30px rgba(184, 134, 11, 0.15);
+            background: rgba(18, 35, 68, 0.88);
+            border: 1px solid rgba(206, 176, 78, 0.6);
+            box-shadow: 0 0 30px rgba(206, 176, 78, 0.15);
             padding: 36px;
         }
 
@@ -54,8 +55,9 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
         }
 
         .conf-header h1 {
+            font-family: 'Bebas Neue', 'Inter', sans-serif;
             margin: 0 0 8px;
-            font-size: 1.9rem;
+            font-size: 2.2rem;
             letter-spacing: 2px;
             text-transform: uppercase;
         }
@@ -155,7 +157,7 @@ Updated by Day Ekoi 4/22/26 - JS-driven, loads order data from API
             transition: 0.2s;
         }
 
-        .btn-primary { background: linear-gradient(145deg, #B8860B, #8B6508); color: #0a1830; }
+        .btn-primary { background: linear-gradient(145deg, #ceb04e, #a68638); color: #0d1a33; }
         .btn-primary:hover { filter: brightness(1.2); }
 
         .btn-secondary {
