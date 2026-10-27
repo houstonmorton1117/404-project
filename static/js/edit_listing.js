@@ -8,6 +8,8 @@
     - Per-size quantity inputs
     - Made-to-Order toggle
     Updated by Day E - April 22nd - multi-image edit management using existing S3 and listing image routes
+
+    Updated by Jasmine Mark - 10/27/26 - edit image upload failure message
 */
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -292,7 +294,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(data.error || "Could not upload listing image.");
+            throw new Error(data.error || (response.status === 413
+                ? "Image is too large (max 25 MB)."
+                : "Could not upload listing image."));
         }
         return data.url;
     }
