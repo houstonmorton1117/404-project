@@ -6,6 +6,8 @@
     Created by Day Ekoi - Iteration 5
     3/22/2026
 
+    Updated by Jasmine Mark - 10/26/26 - remove chose file button
+
 
 Description:
 This file controls the styling and layout of the Create Storefront page.
@@ -305,15 +307,6 @@ textarea:focus {
     border-color: #f0cf5a;
     background: rgba(255, 255, 255, 0.1);
     box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.12);
-}
-
-
-/* file inputs: centered */
-input[type="file"] {
-    display: block;
-    margin: 0 auto;
-    color: white;
-    font-size: 0.95rem;
 }
 
 
