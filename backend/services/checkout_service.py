@@ -1,6 +1,6 @@
 # The Vault Campus Marketplace
-# CSC 405 Sp 26'
 # Modified by Jasmine Mark 10/25/26 - Checkout now uses one databse connection and failed stock update cancels the entire transaction. Added OutOfStockError class to handle stock issues.
+# Edited By Saffie C. Oct 27
 
 import random
 import string
