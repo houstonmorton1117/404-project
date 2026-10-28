@@ -226,9 +226,7 @@ def remove_from_cart(index):
                 conn.commit()
                 cur.close()
                 conn.close()
-            except Exception as e:
-                print(f"DB Error removing item: {e}")
-
+            
             session['cart'] = temp_cart
             session.modified = True
             flash(f"Removed {removed_item['name']} from bag.", "info")
