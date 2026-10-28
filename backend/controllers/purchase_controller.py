@@ -11,7 +11,7 @@ This controller handles HTTP requests related to purchase operations.
 It processes requests, calls service methods, and returns JSON responses.
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from services.purchase_service import PurchaseService
 
 purchase_bp = Blueprint('purchase', __name__, url_prefix="/api")
@@ -19,25 +19,11 @@ purchase_service = PurchaseService()
 
 
 def get_current_user():
-    """
-    Temporary user identity method (until real auth is connected):
-    Read user from headers.
-
-    Required header for protected routes:
-      X-User-Id: <int>
-    """
-    user_id = request.headers.get("X-User-Id")
-    role = request.headers.get("X-User-Role", "user")
-
+    user_id = session.get("user_id")
     if not user_id:
         return None
-
-    try:
-        return {"id": int(user_id), "role": role}
-    except Exception:
-        return None
-
-
+    return {"id": int(user_id), "role": session.get("role", "user")}
+    
 @purchase_bp.route('/purchases', methods=['POST'])
 def record_purchase():
     """
