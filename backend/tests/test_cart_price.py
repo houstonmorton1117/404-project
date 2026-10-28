@@ -160,6 +160,14 @@ class TestCartPrice(unittest.TestCase):
         response = self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 1, "size": "M"})
         self.assertEqual(response.status_code, 409)
 
+    def test_cf12_logged_out_add_returns_401_not_redirect(self):
+        # add_to_cart is called via fetch(), which would silently follow a redirect to the login page.
+        self.client.get("/auth/logout")
+        response = self.client.post("/auth/add_to_cart", data={"item_id": self.listing_id, "quantity": 1, "size": "M"})
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["login_url"], "/auth/login")
+        self.assertEqual(self._cart_rows(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

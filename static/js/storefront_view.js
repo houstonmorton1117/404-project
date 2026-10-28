@@ -9,6 +9,8 @@
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - fixed wishlistIds undefined crash and isWishlisted undefined in createListingCard
     Updated by Day E - April 22nd - multi-image listing display, lightbox preview, and contain-based image handling
 
+    Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error
+
     Description:
     This file handles the functionality for the public storefront view page.
     Fetches real storefront and listing data from the Flask API using the
@@ -706,9 +708,16 @@ async function createListingCard(item, wishlistIds, currentUserId) {
                         // CSRF protection added by Rochele Solmon
                         "X-CSRFToken": csrfToken
                     },
-                    body: formData,
-                    redirect: "follow"
+                    body: formData
                 });
+
+                // Not logged in: send the user to login, then bring them back to this page.
+                if (response.status === 401) {
+                    const errData = await response.json().catch(() => ({}));
+                    const loginUrl = errData.login_url || "/auth/login";
+                    window.location.href = `${loginUrl}?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                    return;
+                }
 
                 if (!response.ok) {
                     let errorMsg = "Unable to add item to cart right now.";

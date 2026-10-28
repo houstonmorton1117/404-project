@@ -1,4 +1,5 @@
 # By Ryan Grimes - Updated 3/19/2026
+# Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error
 from flask import Blueprint, request, session, redirect, url_for, render_template, flash, jsonify
 from services.auth_services import AuthService 
 from config.db import get_connection
@@ -103,9 +104,13 @@ def view_cart():
 
 @auth_bp.route('/add_to_cart', methods=['POST'])
 def add_to_cart():
+    # Called via fetch(), so always answer with JSON: a redirect here would be followed
+    # silently and the caller would see the login page as a 200 "success".
     if 'user_id' not in session:
-        flash("Please login to add items to your bag.", "error")
-        return redirect(url_for('auth.login'))
+        return jsonify({
+            "error": "Please login to add items to your bag.",
+            "login_url": url_for('auth.login'),
+        }), 401
 
     # Price and name come from the listings table, never from the client, so they can't be tampered with.
     item_id = request.form.get('item_id', type=int)
@@ -158,8 +163,10 @@ def add_to_cart():
     session['cart'] = temp_cart
     session.modified = True
 
-    flash(f"Added {item_name} to your bag!", "success")
-    return redirect(url_for('auth.view_cart'))
+    return jsonify({
+        "message": f"Added {item_name} to your bag!",
+        "cart_count": len(temp_cart),
+    }), 200
 
 @auth_bp.route('/remove_from_cart/<int:index>', methods=['POST'])
 def remove_from_cart(index):
