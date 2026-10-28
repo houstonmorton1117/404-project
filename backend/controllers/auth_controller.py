@@ -5,6 +5,12 @@ from services.auth_services import AuthService
 from config.db import get_connection
 from models.checkout_model import check_listing_availability, OutOfStockError
 
+from services.login_security_service import (
+    check_login_lockout,
+    record_failed_login,
+    reset_failed_logins
+)
+
 auth_bp = Blueprint('auth', __name__)
 service = AuthService()
 
@@ -19,10 +25,25 @@ def login():
             return "Database connection failed. <a href='/auth/login'>Try again</a>"
 
         #try finally loop for login logic - added by Jasmine Mark 9/30/26
+        
         try:
+            # Check whether this account is temporarily locked
+            remaining_seconds = check_login_lockout(conn, user)
+
+            if remaining_seconds > 0:
+                return (
+                    f"Too many failed login attempts. "
+                    f"Please try again in {remaining_seconds} seconds. "
+                    "<a href='/auth/login'>Back to Login</a>",
+                    429
+                )
+
             success, role = service.validate_login(user, pw, conn)
 
             if success:
+                # Reset failed login attempts after a successful login
+                reset_failed_logins(conn, user)
+
                 session['user'] = user
                 session['role'] = role
 
@@ -52,7 +73,23 @@ def login():
                     return redirect(next_url)
                 return redirect(url_for('auth.listings'))
 
-            return "Invalid Credentials. <a href='/auth/login'>Try again</a>"
+            # Record an incorrect login attempt
+            remaining_attempts = record_failed_login(conn, user)
+
+            if remaining_attempts == 0:
+                return (
+                    "Too many failed login attempts. "
+                    "Your account has been temporarily locked for 60 seconds. "
+                    "<a href='/auth/login'>Back to Login</a>",
+                    429
+                )
+            return (
+                f"Invalid Credentials. "
+                f"You have {remaining_attempts} attempt(s) remaining. "
+                "<a href='/auth/login'>Try again</a>",
+                401
+            )
+        
         finally:
             conn.close() # always release the connection after success or failure
     
@@ -243,12 +280,28 @@ def admin_login():
         if conn is None:
             return "Database connection failed. <a href='/auth/admin-login'>Try again</a>"
 
+       
         try:
+            # Check if the account is temporarily locked
+            remaining_seconds = check_login_lockout(conn, user)
+
+            if remaining_seconds > 0:
+                return (
+                    f"Too many failed login attempts. "
+                    f"Please try again in {remaining_seconds} seconds. "
+                    "<a href='/auth/admin-login'>Back to Admin Login</a>",
+                    429
+                )
+
             success, role = service.validate_login(user, pw, conn)
+
 
             # Edited by rochele solmon: verify that the authenticated account
             # has an admin role before granting admin access.
             if success and role and role.lower() == 'admin':
+                # Reset failed attempts after a successful admin login
+                reset_failed_logins(conn, user)
+
                 session['user'] = user
                 session['role'] = role
 
@@ -264,7 +317,31 @@ def admin_login():
 
                 return redirect(url_for('admin.admin_dashboard'))
 
-            return "Invalid Admin Credentials. <a href='/auth/admin-login'>Try again</a>"
+            
+            # Only count an incorrect password, not a valid non-admin login
+            if not success:
+                remaining_attempts = record_failed_login(conn, user)
+
+                if remaining_attempts == 0:
+                    return (
+                        "Too many failed login attempts. "
+                        "Your account has been locked for 60 seconds. "
+                        "<a href='/auth/admin-login'>Back to Admin Login</a>",
+                        429
+                    )
+
+                return (
+                    f"Invalid Admin Credentials. "
+                    f"You have {remaining_attempts} attempt(s) remaining. "
+                    "<a href='/auth/admin-login'>Try again</a>",
+                    401
+                )
+
+            return (
+                "This account does not have administrator access. "
+                "<a href='/auth/admin-login'>Back to Admin Login</a>",
+                403
+            )
 
         finally:
             conn.close()
