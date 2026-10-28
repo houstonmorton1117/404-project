@@ -226,6 +226,8 @@ def remove_from_cart(index):
                 conn.commit()
                 cur.close()
                 conn.close()
+                            except Exception as e:
+                print(f"DB Error removing item: {e}")
             
             session['cart'] = temp_cart
             session.modified = True
@@ -261,9 +263,6 @@ def get_current_session_user():
 def get_cart_json():
     return jsonify(session.get('cart', []))
 
-@auth_bp.route('/debug/session')
-def debug_session():
-    return jsonify(dict(session))
 
 # Admin login route - added by David Jackson 4/19/26
 @auth_bp.route('/admin-login', methods=['GET', 'POST'])
