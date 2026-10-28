@@ -40,7 +40,7 @@ class CheckoutError(Exception):
 def _generate_confirmation_number():
     date_str = datetime.now().strftime("%y%m%d")
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    return f"VAULT-{date_str}-{suffix}"
+    return f"SHOWTIME-{date_str}-{suffix}"
 
 
 def complete_transaction_from_session(user_id, session_cart, buyer_details):
