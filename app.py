@@ -60,11 +60,6 @@ def create_app():
     def create_listing():
         return render_template('create_listing.html')
 
-    #Route to the Cart screen - Updated 3/22/2026
-    @app.route('/cart')
-    def cart():
-        return render_template('cart.html')
-
     #Route to the Checkout - Updated 4/22/2026
     @app.route('/checkout')
     def checkout():

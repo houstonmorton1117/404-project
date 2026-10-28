@@ -1,4 +1,5 @@
 <!--Made by Madison Boyd on  3/23/2026-->
+<!-- Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -312,7 +313,14 @@
                     if (defaultSize) formData.append("size", defaultSize);
 
                     const res = await fetch("/auth/add_to_cart", { method: "POST", body: formData });
-                    if (res.ok || res.redirected) {
+                    // Not logged in: send the user to login, then bring them back to this page.
+                    if (res.status === 401) {
+                        const errData = await res.json().catch(() => ({}));
+                        const loginUrl = errData.login_url || "/auth/login";
+                        window.location.href = `${loginUrl}?next=${encodeURIComponent(window.location.pathname)}`;
+                        return;
+                    }
+                    if (res.ok) {
                         cartBtn.textContent = "Added!";
                         setTimeout(() => {
                             cartBtn.textContent = "+ Cart";
