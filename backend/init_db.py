@@ -48,6 +48,18 @@ def create_vault_tables():
         """
         cur.execute(create_users_table)
 
+        # Login security: track failed attempts and temporary lockouts
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
+        """)
+
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+        """)
+
+
         # ________________________________________________________
         # STOREFRONTS TABLE (One storefront per user)
         # Added by Day Ekoi 2/26/26
