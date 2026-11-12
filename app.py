@@ -56,7 +56,7 @@ def create_app():
     #Route to the lsiting search - 11/12/2026
     @app.route('/listings')
     def listings_page():
-        return render_template('listings.html)
+        return render_template('listings.html')
 
     # Route to the "Create Storefront" form - Updated 3/22/2026
     @app.route('/create-storefront')
