@@ -93,6 +93,7 @@ def create_app():
     app.register_blueprint(admin_bp) # Updated 3/19/2026 by Ryan Grimes
     app.register_blueprint(returns_bp)
     app.register_blueprint(checkout_bp, url_prefix='/api')
+    app.register_blueprint(listing_search)
 
     @app.get("/health")
     def health():
