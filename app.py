@@ -15,6 +15,7 @@ from controllers.return_controller import returns_bp
 from controllers.checkout_controller import checkout_bp
 from init_db import create_vault_tables
 from utils.payments import get_publishable_key
+from backend.listing_search import listing_search
 
 
 def create_app():
