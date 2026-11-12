@@ -1,0 +1,222 @@
+#Saffie - Nov 12
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search Listings</title>
+  <!-- Link your existing project CSS if served from /static/ -->
+  <link rel="stylesheet" href="/static/theme.css" />
+  <link rel="stylesheet" href="/static/storefront.css" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .search-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 0.65rem 0.9rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .search-bar select {
+      padding: 0.65rem 0.9rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .meta-bar {
+      color: #555;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    .listings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 1rem;
+    }
+    .listing-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #fff;
+    }
+    .listing-card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.05rem;
+    }
+    .listing-price {
+      font-weight: 600;
+      color: #111;
+      margin: 0 0 0.4rem;
+    }
+    .listing-date {
+      font-size: 0.8rem;
+      color: #718096;
+      margin: 0;
+    }
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .pagination button {
+      padding: 0.5rem 1rem;
+      border: 1px solid #ccc;
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .pagination button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <h1>Browse Listings</h1>
+
+  <div class="search-bar">
+    <input
+      type="text"
+      id="search-input"
+      placeholder="Search by item name (e.g. hoodie)..."
+      maxlength="100"
+    />
+    <select id="sort-select" aria-label="Sort listings">
+      <option value="newest">Newest</option>
+      <option value="price_asc">Price: Low to High</option>
+      <option value="price_desc">Price: High to Low</option>
+    </select>
+  </div>
+
+  <div id="results-count" class="meta-bar"></div>
+  <div id="listings-grid" class="listings-grid"></div>
+  <div id="pagination-controls" class="pagination"></div>
+
+  <script>
+    const state = {
+      q: "",
+      sort: "newest",
+      page: 1,
+      limit: 20,
+    };
+
+    let debounceTimer = null;
+
+    async function fetchListings() {
+      const grid = document.getElementById("listings-grid");
+      const countEl = document.getElementById("results-count");
+      grid.innerHTML = "<p>Loading listings...</p>";
+
+      const params = new URLSearchParams({
+        q: state.q,
+        sort: state.sort,
+        page: String(state.page),
+        limit: String(state.limit),
+      });
+
+      try {
+        const response = await fetch(`/api/listings?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+        const data = await response.json();
+        renderResults(data);
+      } catch (err) {
+        countEl.textContent = "";
+        grid.innerHTML = `<p>Error loading listings: ${err.message}</p>`;
+      }
+    }
+
+    function renderResults({ items, total, page, limit }) {
+      const grid = document.getElementById("listings-grid");
+      const countEl = document.getElementById("results-count");
+      const paginationEl = document.getElementById("pagination-controls");
+
+      countEl.textContent = `${total} result${total === 1 ? "" : "s"} found`;
+      grid.innerHTML = "";
+
+      if (!items || items.length === 0) {
+        grid.innerHTML = "<p>No listings found.</p>";
+        paginationEl.innerHTML = "";
+        return;
+      }
+
+      items.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "listing-card";
+
+        const title = document.createElement("h3");
+        title.textContent = item.name;
+
+        const price = document.createElement("p");
+        price.className = "listing-price";
+        price.textContent =
+          item.price !== null ? `$${Number(item.price).toFixed(2)}` : "Price N/A";
+
+        const date = document.createElement("p");
+        date.className = "listing-date";
+        date.textContent = item.created_at
+          ? `Listed ${new Date(item.created_at).toLocaleDateString()}`
+          : "";
+
+        card.append(title, price, date);
+        grid.appendChild(card);
+      });
+
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      paginationEl.innerHTML = "";
+
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "Previous";
+      prevBtn.disabled = page <= 1;
+      prevBtn.addEventListener("click", () => {
+        state.page -= 1;
+        fetchListings();
+      });
+
+      const pageLabel = document.createElement("span");
+      pageLabel.textContent = `Page ${page} of ${totalPages}`;
+
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "Next";
+      nextBtn.disabled = page >= totalPages;
+      nextBtn.addEventListener("click", () => {
+        state.page += 1;
+        fetchListings();
+      });
+
+      paginationEl.append(prevBtn, pageLabel, nextBtn);
+    }
+
+    document.getElementById("search-input").addEventListener("input", (e) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        state.q = e.target.value.trim();
+        state.page = 1;
+        fetchListings();
+      }, 300);
+    });
+
+    document.getElementById("sort-select").addEventListener("change", (e) => {
+      state.sort = e.target.value;
+      state.page = 1;
+      fetchListings();
+    });
+
+    // Load initial listings when page opens
+    fetchListings();
+  </script>
+</body>
+</html>
