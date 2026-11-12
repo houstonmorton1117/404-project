@@ -20,7 +20,7 @@ All system rules + permission checks happen in services/listing_service.py.
 """
 
 from flask import Blueprint, request, jsonify, session
-
+from utils.auth_utils import get_current_user
 from services.listing_service import (
     create_listing_service,
     get_listing_by_id_service,
@@ -44,24 +44,6 @@ from services.listing_service import (
 from services.storefront_service import get_my_storefront_service
 
 listing_bp = Blueprint("listing_bp", __name__, url_prefix="/api")
-
-
-def get_current_user():
-    """
-    Reads the authenticated user from the server-side session (set at login
-    in auth_controller.py), not from client-supplied headers. A previous
-    version trusted an X-User-Id / X-User-Role header pair directly, which
-    let any request impersonate any user (including admin) just by setting
-    those headers -- the ownership checks in listing_service.py were real,
-    but the identity they checked against was attacker-controlled.
-    """
-    user_id = session.get("user_id")
-    role = session.get("role", "user")
-
-    if not user_id:
-        return None
-
-    return {"id": int(user_id), "role": role}
 
 
 # __________________________________________________________
