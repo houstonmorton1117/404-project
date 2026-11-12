@@ -19,7 +19,7 @@ Functions:
 """
 
 from flask import Blueprint, request, jsonify, render_template, session
-
+from utils.auth_utils import get_current_user
 from services.storefront_service import (
     create_storefront_service,
     get_my_storefront_service,
@@ -35,25 +35,6 @@ storefront_bp = Blueprint("storefront_bp", __name__, url_prefix="/api/storefront
 
 # Page blueprint
 storefront_pages_bp = Blueprint("storefront_pages_bp", __name__)
-
-
-def get_current_user():
-    """
-    Reads the authenticated user from the server-side session (set at login
-    in auth_controller.py), not from client-supplied headers. A previous
-    version trusted an X-User-Id / X-User-Role header pair directly, which
-    let any request impersonate any user (including admin) just by setting
-    those headers -- the ownership checks in storefront_service.py were
-    real, but the identity they checked against was attacker-controlled.
-    """
-    user_id = session.get("user_id")
-    role = session.get("role", "user")
-
-    if not user_id:
-        return None
-
-    return {"id": int(user_id), "role": role}
-
 
 #_________________________________________________________
 # Page Routing
