@@ -2,6 +2,7 @@ import sys
 import os
 from flask import Flask, render_template, redirect, url_for, session, request
 from flask_wtf.csrf import CSRFProtect #Added by rochele solmon
+from flask import Flask, render _template
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))) # Updated 3/19/2026 by Ryan Grimes
 
@@ -15,6 +16,7 @@ from controllers.return_controller import returns_bp
 from controllers.checkout_controller import checkout_bp
 from init_db import create_vault_tables
 from utils.payments import get_publishable_key
+from backend.listing_search import listing_search
 from backend.listing_search import listing_search
 
 
@@ -50,6 +52,11 @@ def create_app():
     @app.route('/storefront')
     def storefront():
         return render_template('storefront.html')
+        
+    #Route to the lsiting search - 11/12/2026
+    @app.route('/listings')
+    def listings_page():
+        return render_template('listings.html)
 
     # Route to the "Create Storefront" form - Updated 3/22/2026
     @app.route('/create-storefront')
