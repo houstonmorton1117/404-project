@@ -350,9 +350,56 @@ def create_vault_tables():
         """
         cur.execute(create_order_items_table)
 
+        # ________________________________________________________
+        # STOREFRONT FOLLOWS TABLE (Users following a storefront)
+        # Added by Houston Morton - Iteration 4
+        # ________________________________________________________
+        create_storefront_follows_table = """
+            CREATE TABLE IF NOT EXISTS storefront_follows (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                storefront_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                CONSTRAINT fk_follow_user
+                    FOREIGN KEY(user_id)
+                    REFERENCES users(id)
+                    ON DELETE CASCADE,
+                CONSTRAINT fk_follow_storefront
+                    FOREIGN KEY(storefront_id)
+                    REFERENCES storefronts(id)
+                    ON DELETE CASCADE,
+                CONSTRAINT unique_follow
+                    UNIQUE (user_id, storefront_id)
+            );
+        """
+        cur.execute(create_storefront_follows_table)
+
+        # ________________________________________________________
+        # NOTIFICATIONS TABLE (In-app notifications)
+        # Added by Houston Morton - Iteration 4
+        # ________________________________________________________
+        create_notifications_table = """
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                type VARCHAR(30) NOT NULL,
+                message TEXT NOT NULL,
+                link TEXT,
+                is_read BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                CONSTRAINT fk_notification_user
+                    FOREIGN KEY(user_id)
+                    REFERENCES users(id)
+                    ON DELETE CASCADE
+            );
+        """
+        cur.execute(create_notifications_table)
+
         conn.commit()
 
-        print("DATABASE INITIALIZED: users, storefronts, listings, listing_images, listing_sizes, purchases, wishlist, orders, and order_items tables are ready.")
+        print("DATABASE INITIALIZED: users, storefronts, listings, listing_images, listing_sizes, purchases, wishlist, orders, order_items, storefront_follows, and notifications tables are ready.")
 
         cur.close()
         conn.close()

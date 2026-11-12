@@ -55,6 +55,8 @@ from models.listing_model import (
 )
 
 from models.storefront_model import get_storefront_by_id
+from services.follow_service import get_follower_user_ids_service
+from services.notification_service import notify_user
 
 # Updated by Day E - April 22nd
 # Listing state rules:
@@ -172,7 +174,7 @@ def create_listing_service(current_user, storefront_id, data):
     if not is_made_to_order and fulfillment_type == "IN_STOCK" and quantity_on_hand == 0:
         status = "SOLD_OUT"
 
-    return create_listing(
+    listing = create_listing(
         storefront_id=storefront_id,
         title=str(title).strip(),
         description=data.get("description"),
@@ -183,6 +185,26 @@ def create_listing_service(current_user, storefront_id, data):
         status=status,
         is_made_to_order=is_made_to_order
     )
+
+    # Best-effort: tell followers about the new listing. A notification failure
+    # should never stop the listing itself from being created.
+    try:
+        _notify_followers_of_new_listing(storefront, listing)
+    except Exception as e:
+        print(f"[listings] follower notification failed: {e}")
+
+    return listing
+
+
+def _notify_followers_of_new_listing(storefront, listing):
+    follower_ids = get_follower_user_ids_service(storefront["id"])
+    for follower_id in follower_ids:
+        notify_user(
+            follower_id,
+            "new_listing",
+            f"{storefront['brand_name']} just posted a new listing: {listing['title']}.",
+            link=f"/storefronts/{storefront['id']}",
+        )
 
 
 def get_listing_by_id_service(listing_id):

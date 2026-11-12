@@ -27,6 +27,9 @@ from utils.payments import (
     capture_payment,
     refund_payment,
 )
+from models.listing_model import get_listing_by_id
+from models.storefront_model import get_storefront_by_id
+from services.notification_service import notify_user
 
 # Raw card fields the old checkout form used to send. Only Stripe's token is accepted now,
 # so a request carrying any of these is refused before anything else happens.
@@ -105,7 +108,37 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     except Exception as e:
         print(f"[checkout] wishlist cleanup failed: {e}")
 
+    # Notify each seller that something sold. Best-effort, after the commit, so a
+    # notification problem never undoes or blocks a completed purchase.
+    try:
+        _notify_sellers_of_order(result["order_items"], result["confirmation_number"])
+    except Exception as e:
+        print(f"[checkout] seller notification failed: {e}")
+
     return result
+
+
+def _notify_sellers_of_order(order_items, confirmation_number):
+    """Groups the purchased items by storefront and sends each seller one notification."""
+    items_by_storefront = {}
+    for item in order_items:
+        listing = get_listing_by_id(item["listing_id"])
+        if not listing:
+            continue
+        items_by_storefront.setdefault(listing["storefront_id"], []).append(item)
+
+    for storefront_id, items in items_by_storefront.items():
+        storefront = get_storefront_by_id(storefront_id)
+        if not storefront:
+            continue
+        item_count = sum(item["quantity"] for item in items)
+        noun = "item" if item_count == 1 else "items"
+        notify_user(
+            storefront["owner_id"],
+            "order",
+            f"You sold {item_count} {noun} in order {confirmation_number}.",
+            link="/storefronts/dashboard",
+        )
 
 
 def _complete_transaction(conn, user_id, session_cart, buyer_details, requested, payment):

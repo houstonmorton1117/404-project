@@ -13,6 +13,8 @@ from controllers.admin_controller import admin_bp
 from controllers.auth_controller import auth_bp # Updated 3/19/2026 by Ryan Grimes
 from controllers.return_controller import returns_bp
 from controllers.checkout_controller import checkout_bp
+from controllers.notification_controller import notification_bp
+from controllers.follow_controller import follow_bp
 from init_db import create_vault_tables
 from utils.payments import get_publishable_key
 
@@ -92,6 +94,8 @@ def create_app():
     app.register_blueprint(admin_bp) # Updated 3/19/2026 by Ryan Grimes
     app.register_blueprint(returns_bp)
     app.register_blueprint(checkout_bp, url_prefix='/api')
+    app.register_blueprint(notification_bp)
+    app.register_blueprint(follow_bp)
 
     @app.get("/health")
     def health():

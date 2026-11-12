@@ -12,6 +12,7 @@ from models.admin_model import (
     get_admin_returns,
     update_admin_return_status,
 )
+from services.notification_service import notify_user
 
 
 def fetch_users():
@@ -71,4 +72,17 @@ def update_return_status_service(return_id, status):
     updated = update_admin_return_status(return_id, status)
     if updated is None:
         raise ValueError("Return not found")
+
+    # Best-effort: let the buyer know their return moved, but don't fail the
+    # admin action if the notification can't be written.
+    try:
+        notify_user(
+            updated["user_id"],
+            "return",
+            f"Your return for order {updated['order_number']} is now {updated['status']}.",
+            link="/account",
+        )
+    except Exception as e:
+        print(f"[admin] return status notification failed: {e}")
+
     return updated
