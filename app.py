@@ -17,6 +17,7 @@ from controllers.notification_controller import notification_bp
 from controllers.follow_controller import follow_bp
 from init_db import create_vault_tables
 from utils.payments import get_publishable_key
+from backend.listing_search import listing_search
 
 
 def create_app():
@@ -51,6 +52,11 @@ def create_app():
     @app.route('/storefront')
     def storefront():
         return render_template('storefront.html')
+        
+    #Route to the lsiting search - 11/12/2026
+    @app.route('/listings')
+    def listings_page():
+        return render_template('listings.html')
 
     # Route to the "Create Storefront" form - Updated 3/22/2026
     @app.route('/create-storefront')
@@ -96,6 +102,7 @@ def create_app():
     app.register_blueprint(checkout_bp, url_prefix='/api')
     app.register_blueprint(notification_bp)
     app.register_blueprint(follow_bp)
+    app.register_blueprint(listing_search)
 
     @app.get("/health")
     def health():
