@@ -344,3 +344,40 @@ def admin_login():
             conn.close()
 
     return render_template('admin_login.html')
+
+
+# Account Settings (Settings tab on the account page) - added by Jasmine Mark 11/12/26
+# he user is always read from the session, never from the form.
+
+def _settings_request(action):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Please login to change your account settings."}), 401
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed. Please try again."}), 503
+    try:
+        success, message = action(user_id, conn)
+    finally:
+        conn.close()
+
+    if success:
+        return jsonify({"message": message}), 200
+    return jsonify({"error": message}), 400
+
+
+@auth_bp.route('/account/email', methods=['POST'])
+def update_account_email():
+    return _settings_request(lambda user_id, conn: service.update_email(
+        user_id, request.form.get('email'), conn))
+
+
+@auth_bp.route('/account/password', methods=['POST'])
+def change_account_password():
+    return _settings_request(lambda user_id, conn: service.change_password(
+        user_id,
+        request.form.get('current_password'),
+        request.form.get('new_password'),
+        request.form.get('confirm_password'),
+        conn))
