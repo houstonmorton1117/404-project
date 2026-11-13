@@ -138,6 +138,11 @@
         .purchase-meta { color: #aaa; font-size: 0.85rem; margin-top: 4px; }
         .purchase-total { color: var(--gold); font-weight: bold; float: right; }
 
+        /* Order notifications - Added by Houston Morton - Iteration 4 */
+        .notification-row { border-left: 3px solid transparent; }
+        .notification-row.is-unread { border-left: 3px solid var(--gold); background: #14305e; }
+        .notification-meta { color: #888; font-size: 0.75rem; margin-top: 4px; }
+
         .back-btn { color: var(--gold); text-decoration: none; font-size: 0.9rem; }
     </style>
 </head>
@@ -161,6 +166,9 @@
         <button class="tab-link" onclick="openTab(event, 'wishlist')">Wishlist</button>
         <button class="tab-link" onclick="openTab(event, 'purchases')">Purchases</button>
         <button class="tab-link" onclick="openTab(event, 'sales')">Sales History</button>
+        <!-- Follow a storefront / Order notifications - Added by Houston Morton - Iteration 4 -->
+        <button class="tab-link" onclick="openTab(event, 'following')">Following</button>
+        <button class="tab-link" onclick="openTab(event, 'notifications')">Notifications</button>
     </div>
 
     <div id="listings" class="tab-content active">
@@ -184,6 +192,21 @@
     <div id="sales" class="tab-content">
         <h3>SALES HISTORY</h3>
         <p class="empty-state">No items sold yet.</p>
+    </div>
+
+    <!-- Follow a storefront - Added by Houston Morton - Iteration 4 -->
+    <div id="following" class="tab-content">
+        <h3>FOLLOWED STOREFRONTS</h3>
+        <p id="followingEmptyState" class="empty-state">Loading followed storefronts...</p>
+        <div id="followingItemsContainer" class="wishlist-items"></div>
+    </div>
+
+    <!-- Order notifications - Added by Houston Morton - Iteration 4 -->
+    <div id="notifications" class="tab-content">
+        <h3>NOTIFICATIONS</h3>
+        <button id="markAllReadBtn" class="wishlist-remove-btn" type="button" style="margin-bottom:12px;">Mark all read</button>
+        <p id="notificationsEmptyState" class="empty-state">Loading notifications...</p>
+        <div id="notificationsContainer" class="purchase-items"></div>
     </div>
 </div>
 
@@ -226,6 +249,8 @@
 
         if (tabName === "wishlist") loadWishlist();
         if (tabName === "purchases") loadPurchases();
+        if (tabName === "following") loadFollowing();
+        if (tabName === "notifications") loadNotifications();
     }
 
     function getLocalWishlistItems() {
@@ -556,6 +581,138 @@
             console.error("Error loading purchases:", error);
             if (emptyState) emptyState.textContent = "Unable to load orders right now.";
         }
+    }
+
+    // Follow a storefront - Added by Houston Morton - Iteration 4
+    async function loadFollowing() {
+        const emptyState = document.getElementById("followingEmptyState");
+        const container = document.getElementById("followingItemsContainer");
+
+        try {
+            const res = await fetch("/api/account/following");
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to load followed storefronts");
+
+            const stores = Array.isArray(data.following) ? data.following : [];
+
+            if (!stores.length) {
+                if (emptyState) {
+                    emptyState.textContent = "You aren't following any storefronts yet.";
+                    emptyState.style.display = "block";
+                }
+                if (container) container.innerHTML = "";
+                return;
+            }
+
+            if (emptyState) emptyState.style.display = "none";
+            if (container) container.innerHTML = "";
+
+            stores.forEach((store) => {
+                const row = document.createElement("div");
+                row.className = "wishlist-row";
+                row.innerHTML = `
+                    <div class="wishlist-left">
+                        <img class="wishlist-thumb" src="${esc(store.logo_url || "/static/images/logo.png")}" alt="${esc(store.brand_name || "Storefront")}">
+                        <div>
+                            <div class="wishlist-title">${esc(store.brand_name || "Storefront")}</div>
+                            <div class="wishlist-meta">${esc(store.bio || "")}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="/storefronts/${store.id}" class="wishlist-cart-btn" style="text-decoration:none; display:inline-block;">View</a>
+                        <button class="wishlist-remove-btn unfollow-btn" type="button">Unfollow</button>
+                    </div>
+                `;
+
+                const unfollowBtn = row.querySelector(".unfollow-btn");
+                unfollowBtn.addEventListener("click", async () => {
+                    unfollowBtn.disabled = true;
+                    try {
+                        const delRes = await fetch(`/api/storefronts/${store.id}/follow`, {
+                            method: "DELETE",
+                            headers: { "X-CSRFToken": CSRF }
+                        });
+                        if (!delRes.ok) {
+                            const errData = await delRes.json().catch(() => ({}));
+                            throw new Error(errData.error || "Could not unfollow.");
+                        }
+                        row.remove();
+                        if (container && !container.children.length && emptyState) {
+                            emptyState.textContent = "You aren't following any storefronts yet.";
+                            emptyState.style.display = "block";
+                        }
+                    } catch (error) {
+                        alert("Unable to unfollow: " + error.message);
+                        unfollowBtn.disabled = false;
+                    }
+                });
+
+                if (container) container.appendChild(row);
+            });
+        } catch (error) {
+            console.error("Error loading followed storefronts:", error);
+            if (emptyState) emptyState.textContent = "Unable to load followed storefronts right now.";
+        }
+    }
+
+    // In-app notifications - Added by Houston Morton - Iteration 4
+    async function loadNotifications() {
+        const emptyState = document.getElementById("notificationsEmptyState");
+        const container = document.getElementById("notificationsContainer");
+
+        try {
+            const res = await fetch("/api/notifications");
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to load notifications");
+
+            const items = Array.isArray(data.notifications) ? data.notifications : [];
+
+            if (!items.length) {
+                if (emptyState) {
+                    emptyState.textContent = "No notifications yet.";
+                    emptyState.style.display = "block";
+                }
+                if (container) container.innerHTML = "";
+                return;
+            }
+
+            if (emptyState) emptyState.style.display = "none";
+            if (container) container.innerHTML = "";
+
+            items.forEach((item) => {
+                const date = item.created_at
+                    ? new Date(item.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+                    : "";
+                const row = document.createElement("div");
+                row.className = `purchase-row notification-row${item.is_read ? "" : " is-unread"}`;
+                row.innerHTML = `
+                    <div>${esc(item.message)}</div>
+                    <div class="notification-meta">${date}</div>
+                `;
+                if (container) container.appendChild(row);
+            });
+        } catch (error) {
+            console.error("Error loading notifications:", error);
+            if (emptyState) emptyState.textContent = "Unable to load notifications right now.";
+        }
+    }
+
+    const markAllReadBtn = document.getElementById("markAllReadBtn");
+    if (markAllReadBtn) {
+        markAllReadBtn.addEventListener("click", async () => {
+            markAllReadBtn.disabled = true;
+            try {
+                await fetch("/api/notifications/read-all", {
+                    method: "POST",
+                    headers: { "X-CSRFToken": CSRF }
+                });
+                loadNotifications();
+            } catch (error) {
+                console.error("Unable to mark notifications read:", error);
+            } finally {
+                markAllReadBtn.disabled = false;
+            }
+        });
     }
 
     document.addEventListener("DOMContentLoaded", loadMyListings);

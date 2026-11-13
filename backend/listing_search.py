@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 from psycopg2.extras import RealDictCursor
 
 
-from backend.db import get_db_connection  
+from backend.db import get_connection as get_db_connection
 
 listing_search = Blueprint("listing_search", __name__)
 

@@ -68,6 +68,45 @@ body {
     color: #f0cc55;
 }
 
+/* Follow a storefront - Added by Houston Morton - Iteration 4 */
+.follow-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(18, 35, 68, 0.55);
+    border: 1px solid rgba(212,175,55,0.5);
+    border-radius: 999px;
+    color: #d4af37;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    cursor: pointer;
+    margin-left: auto;
+    align-self: center;
+    transition: background 0.2s, color 0.2s;
+}
+
+.follow-btn:hover {
+    background: rgba(212,175,55,0.15);
+    color: #f0cc55;
+}
+
+.follow-btn.is-following {
+    background: #d4af37;
+    color: #0d1a33;
+}
+
+.follow-btn.is-following:hover {
+    background: #f0cc55;
+}
+
+.follow-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .storefront-top {
     position: relative;
     margin-bottom: 2rem;

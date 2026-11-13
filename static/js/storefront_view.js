@@ -64,6 +64,7 @@ const lightboxDots = document.getElementById("lightboxDots");
 const lightboxClose = document.getElementById("lightboxClose");
 const lightboxPrev = document.getElementById("lightboxPrev");
 const lightboxNext = document.getElementById("lightboxNext");
+const followBtn = document.getElementById("followBtn"); // Added by Houston Morton - Iteration 4
 
 const listingImagesCache = new Map();
 
@@ -748,6 +749,65 @@ async function createListingCard(item, wishlistIds, currentUserId) {
     return card;
 }
 
+// Follow a storefront - Added by Houston Morton - Iteration 4
+function renderFollowButton(isFollowing) {
+    if (!followBtn) return;
+    followBtn.textContent = isFollowing ? "Following" : "Follow";
+    followBtn.classList.toggle("is-following", isFollowing);
+}
+
+async function setupFollowButton(storefront, sessionUser) {
+    if (!followBtn) return;
+
+    // Hide for a signed-out visitor or the storefront's own owner.
+    if (!sessionUser?.id || Number(sessionUser.id) === Number(storefront.owner_id)) {
+        followBtn.style.display = "none";
+        return;
+    }
+
+    followBtn.style.display = "inline-flex";
+
+    let isFollowing = false;
+    try {
+        const res = await fetch(`/api/storefronts/${storefrontId}/follow/check`);
+        if (res.ok) {
+            const data = await res.json();
+            isFollowing = Boolean(data.following);
+        }
+    } catch (error) {
+        console.error("Unable to check follow status:", error);
+    }
+
+    renderFollowButton(isFollowing);
+
+    followBtn.addEventListener("click", async () => {
+        followBtn.disabled = true;
+
+        // CSRF protection added by Rochele Solmon
+        const csrfToken =
+            document.querySelector('meta[name="csrf-token"]')?.content
+            || document.querySelector('input[name="csrf_token"]')?.value;
+
+        try {
+            const res = await fetch(`/api/storefronts/${storefrontId}/follow`, {
+                method: isFollowing ? "DELETE" : "POST",
+                headers: { "X-CSRFToken": csrfToken }
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Could not update follow status.");
+
+            isFollowing = Boolean(data.following);
+            renderFollowButton(isFollowing);
+            showCartToast(isFollowing ? "Following this storefront." : "Unfollowed.", "success");
+        } catch (error) {
+            showCartToast(error.message, "error");
+        } finally {
+            followBtn.disabled = false;
+        }
+    });
+}
+
 async function loadStorefrontView() {
     let storefront;
 
@@ -801,6 +861,9 @@ async function loadStorefrontView() {
 
     const sessionUser = await getCurrentSessionUser();
     const wishlistIds = await getWishlistIdSet(sessionUser?.id || null);
+
+    // Follow a storefront - Added by Houston Morton - Iteration 4
+    setupFollowButton(storefront, sessionUser);
 
     try {
         const listRes = await fetch(
