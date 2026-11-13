@@ -2,6 +2,14 @@
 #Register user and validate login
 from utils.auth_utils import hash_password, verify_password
 
+#added by jasmine mark 11/12/26
+HAMPTON_EMAIL_DOMAINS = ("@hamptonu.edu", "@my.hamptonu.edu")
+
+# stand-in password rule for the Account Settings change-password form.
+# replace with josh's password rules function once his branch is merged
+def is_valid_password(pw):
+    return isinstance(pw, str) and len(pw) >= 8
+
 #Email validation update (Rochele SOlmon)
 class AuthService:
     def register_user(self, username, password, email, db_conn): #Stores a user's unique ID, username, password, and email into the database
@@ -57,3 +65,59 @@ class AuthService:
             db_conn.commit()
         except Exception as e:
             print(f"Service Error: Could not clear cart: {e}")
+
+    # Account Settings (Settings tab) - added by Jasmine Mark 11/12/26
+    # Both methods take the user_id from the session (never the form), so a user can only change their own account.
+    def update_email(self, user_id, new_email, db_conn):
+        new_email = (new_email or "").strip()
+        if not new_email.lower().endswith(HAMPTON_EMAIL_DOMAINS):
+            return False, "You Must Use a Hampton University Associated Email"
+
+        try:
+            cur = db_conn.cursor()
+            # Same rule as signup: no two users may share an email (checked case-insensitively)
+            cur.execute(
+                "SELECT 1 FROM users WHERE LOWER(email) = LOWER(%s) AND id <> %s",
+                (new_email, user_id),
+            )
+            if cur.fetchone():
+                cur.close()
+                return False, "That email is already in use by another account."
+
+            cur.execute("UPDATE users SET email = %s WHERE id = %s", (new_email, user_id))
+            updated = cur.rowcount
+            db_conn.commit()
+            cur.close()
+            if not updated:
+                return False, "Account not found."
+            return True, "Email updated."
+        except Exception as e:
+            print(f"Update Email Error: {e}")
+            db_conn.rollback()
+            return False, "Could not update email right now."
+
+    def change_password(self, user_id, current_password, new_password, confirm_password, db_conn):
+        if not current_password or not new_password:
+            return False, "Please fill in all password fields."
+        if new_password != confirm_password:
+            return False, "New passwords do not match."
+        if not is_valid_password(new_password):
+            return False, "New password must be at least 8 characters."
+
+        try:
+            cur = db_conn.cursor()
+            cur.execute("SELECT password FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            # Require the current password so a stolen session alone can't change it
+            if not row or not verify_password(row[0], current_password):
+                cur.close()
+                return False, "Current password is incorrect."
+
+            cur.execute("UPDATE users SET password = %s WHERE id = %s", (hash_password(new_password), user_id))
+            db_conn.commit()
+            cur.close()
+            return True, "Password updated."
+        except Exception as e:
+            print(f"Change Password Error: {e}")
+            db_conn.rollback()
+            return False, "Could not change password right now."

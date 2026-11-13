@@ -1,5 +1,6 @@
 <!--Made by Madison Boyd on  3/23/2026-->
 <!-- Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error -->
+<!-- Updated by Jasmine Mark on 11/12/26 to add the Settings tab for changing email and password -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -139,6 +140,25 @@
         .purchase-total { color: var(--gold); font-weight: bold; float: right; }
 
         .back-btn { color: var(--gold); text-decoration: none; font-size: 0.9rem; }
+
+        /* Settings tab */
+        .settings-section { border: 1px solid #2a4570; background: #102447; padding: 16px; margin-top: 16px; }
+        .settings-section h4 { margin: 0 0 12px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; font-size: 0.9rem; }
+        .settings-section label { display: block; color: #bbb; font-size: 0.85rem; margin: 10px 0 4px; }
+        .settings-section input {
+            width: 100%; max-width: 360px; box-sizing: border-box; padding: 8px 10px;
+            background: #0a1830; border: 1px solid #2a4570; color: #f0f0f0;
+        }
+        .settings-section input[readonly] { color: #888; cursor: not-allowed; }
+        .settings-btn {
+            margin-top: 14px; border: 1px solid var(--gold); background: transparent; color: var(--gold);
+            padding: 8px 14px; cursor: pointer; font-size: 0.8rem; text-transform: uppercase;
+        }
+        .settings-btn:hover { background: rgba(184,134,11,0.15); }
+        .settings-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .settings-msg { margin-top: 10px; font-size: 0.85rem; min-height: 1em; }
+        .settings-msg.error { color: #ff6b6b; }
+        .settings-msg.success { color: #7bd88f; }
     </style>
 </head>
 <body>
@@ -161,6 +181,7 @@
         <button class="tab-link" onclick="openTab(event, 'wishlist')">Wishlist</button>
         <button class="tab-link" onclick="openTab(event, 'purchases')">Purchases</button>
         <button class="tab-link" onclick="openTab(event, 'sales')">Sales History</button>
+        <button class="tab-link" onclick="openTab(event, 'settings')">Settings</button>
     </div>
 
     <div id="listings" class="tab-content active">
@@ -184,6 +205,36 @@
     <div id="sales" class="tab-content">
         <h3>SALES HISTORY</h3>
         <p class="empty-state">No items sold yet.</p>
+    </div>
+
+    <div id="settings" class="tab-content">
+        <h3>ACCOUNT SETTINGS</h3>
+
+        <div class="settings-section">
+            <h4>Username</h4>
+            <label for="settingsUsername">Username (cannot be changed)</label>
+            <input id="settingsUsername" type="text" value="{{ session['user'] }}" readonly>
+        </div>
+
+        <form id="emailForm" class="settings-section" data-endpoint="{{ url_for('auth.update_account_email') }}">
+            <h4>Change Email</h4>
+            <label for="newEmail">New email (@hamptonu.edu or @my.hamptonu.edu)</label>
+            <input id="newEmail" name="email" type="email" required autocomplete="email">
+            <button class="settings-btn" type="submit">Update Email</button>
+            <p class="settings-msg" role="status"></p>
+        </form>
+
+        <form id="passwordForm" class="settings-section" data-endpoint="{{ url_for('auth.change_account_password') }}">
+            <h4>Change Password</h4>
+            <label for="currentPassword">Current password</label>
+            <input id="currentPassword" name="current_password" type="password" required autocomplete="current-password">
+            <label for="newPassword">New password (at least 8 characters)</label>
+            <input id="newPassword" name="new_password" type="password" required minlength="8" autocomplete="new-password">
+            <label for="confirmPassword">Confirm new password</label>
+            <input id="confirmPassword" name="confirm_password" type="password" required minlength="8" autocomplete="new-password">
+            <button class="settings-btn" type="submit">Change Password</button>
+            <p class="settings-msg" role="status"></p>
+        </form>
     </div>
 </div>
 
@@ -557,6 +608,54 @@
             if (emptyState) emptyState.textContent = "Unable to load orders right now.";
         }
     }
+
+    // settings tab: submit each form with fetch and show the result under that form
+    function wireSettingsForm(formId, { resetOnSuccess = false } = {}) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        const msg = form.querySelector(".settings-msg");
+        const btn = form.querySelector("button[type=submit]");
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            msg.textContent = "";
+            msg.className = "settings-msg";
+
+            if (formId === "passwordForm" && form.new_password.value !== form.confirm_password.value) {
+                msg.textContent = "New passwords do not match.";
+                msg.classList.add("error");
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                const res = await fetch(form.dataset.endpoint, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": CSRF },
+                    body: new FormData(form),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 401) {
+                    window.location.href = `/auth/login?next=${encodeURIComponent(window.location.pathname)}`;
+                    return;
+                }
+                if (!res.ok) throw new Error(data.error || "Something went wrong. Please try again.");
+                msg.textContent = data.message || "Saved.";
+                msg.classList.add("success");
+                if (resetOnSuccess) form.reset();
+            } catch (err) {
+                msg.textContent = err.message;
+                msg.classList.add("error");
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        wireSettingsForm("emailForm");
+        wireSettingsForm("passwordForm", { resetOnSuccess: true });
+    });
 
     document.addEventListener("DOMContentLoaded", loadMyListings);
     document.addEventListener("DOMContentLoaded", loadWishlist);
