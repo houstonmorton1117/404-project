@@ -59,6 +59,12 @@ def create_vault_tables():
             ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
         """)
 
+        # Account deactivation: admins deactivate users instead of deleting them, so their storefronts, listings and orders are kept. Existing users start active. - Jasmine Mark 11/12/26
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+        """)
+
 
         # ________________________________________________________
         # STOREFRONTS TABLE (One storefront per user)

@@ -169,22 +169,48 @@ def cleanup_user(user_id):
     conn.close()
 
 
-# Tests that admin delete user route actually removes a user from the database
-def test_admin_delete_user_in_real_database(client):
+def user_is_active(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT is_active FROM users WHERE id = %s", (user_id,))
+    result = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return result[0]
+
+
+# Replaces the old delete-user test - jasmine Mark 11/12/26
+# Tests that deactivating keeps the user row, and restoring turns it back on
+def test_admin_deactivate_and_restore_user_in_real_database(client):
     set_admin_session(client)
 
     user_id = create_test_user()
 
     try:
-        assert row_exists("users", user_id) is True
+        assert user_is_active(user_id) is True
 
-        response = client.delete(f"/admin/users/{user_id}")
+        response = client.patch(f"/admin/users/{user_id}/deactivate")
         assert response.status_code == 200
+        assert row_exists("users", user_id) is True
+        assert user_is_active(user_id) is False
 
-        assert row_exists("users", user_id) is False
+        response = client.patch(f"/admin/users/{user_id}/restore")
+        assert response.status_code == 200
+        assert user_is_active(user_id) is True
 
     finally:
         cleanup_user(user_id)
+
+
+# Tests that the old permanent-delete route is gone
+def test_admin_delete_user_route_removed(client):
+    set_admin_session(client)
+
+    response = client.delete("/admin/users/1")
+    assert response.status_code in (404, 405)
 
 
 # Tests that logout clears the session and redirects to login

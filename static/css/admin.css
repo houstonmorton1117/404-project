@@ -61,6 +61,12 @@ button.delete {
     color: white;
 }
 
+/* restore button styling (green: undoes a deactivation) - added 11/12/26 by Jasmine Mark */
+button.restore {
+    background-color: green;
+    color: white;
+}
+
 /* Logout button styling - added 4/23/2026 by David Jackson */
 .logout-btn {
     background: #ceb04e;

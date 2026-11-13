@@ -1,5 +1,6 @@
 # File created by David Jackson
 # models/admin_model.py
+#updated by jasmine mark 11/12/26 - deactivation function
 
 """
 Database queries used by the admin dashboard.
@@ -23,12 +24,13 @@ def get_all_users():
               - email
               - role
               - created_at
+              - is_active
     """
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT id, username, email, role, created_at
+        SELECT id, username, email, role, created_at, is_active
         FROM users
         ORDER BY created_at DESC
     """)
@@ -44,23 +46,53 @@ def get_all_users():
             "email": row[2],
             "role": row[3],
             "created_at": row[4],
+            "is_active": row[5],
         }
         for row in rows
     ]
 
 
-def delete_user(user_id):
+# Replaces delete_user() - Jasmine Mark 11/12/26
+# Deactivating keeps the user's storefronts, listings and orders, and can be undone.
+def set_user_active(user_id, is_active):
+    """
+    Turns a user's account on or off.
+
+    Returns:
+        int: number of rows updated (0 means the user doesn't exist).
+    """
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE users
+            SET is_active = %s
+            WHERE id = %s
+        """, (bool(is_active), user_id))
+        updated = cur.rowcount
+        conn.commit()
+        cur.close()
+        return updated
+    finally:
+        conn.close()
 
-    cur.execute("""
-        DELETE FROM users
-        WHERE id = %s
-    """, (user_id,))
 
-    conn.commit()
-    cur.close()
-    conn.close()
+def _is_user_active(user_id):
+    """
+    Used on every request to sign out users whose account was deactivated.
+
+    Returns:
+        True / False, or None if the user doesn't exist.
+    """
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT is_active FROM users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        return None if row is None else bool(row[0])
+    finally:
+        conn.close()
 
 
 def get_all_listings():

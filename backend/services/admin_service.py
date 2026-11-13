@@ -4,7 +4,7 @@ Admin service helpers for dashboard data and moderation actions.
 
 from models.admin_model import (
     get_all_users,
-    delete_user,
+    set_user_active,
     get_all_listings,
     delete_listing,
     get_admin_storefronts,
@@ -18,11 +18,23 @@ def fetch_users():
     return get_all_users()
 
 
-def remove_user(user_id):
+# Replaces remove_user() - Jasmine Mark 11/11/26
+def deactivate_user(user_id, acting_user_id):
     if not user_id:
         raise ValueError("User ID required")
-    delete_user(user_id)
-    return {"message": "User deleted successfully"}
+    if acting_user_id is not None and int(user_id) == int(acting_user_id):
+        raise ValueError("You can't deactivate your own account")
+    if not set_user_active(user_id, False):
+        raise LookupError("User not found")
+    return {"message": "User deactivated successfully"}
+
+
+def restore_user(user_id):
+    if not user_id:
+        raise ValueError("User ID required")
+    if not set_user_active(user_id, True):
+        raise LookupError("User not found")
+    return {"message": "User restored successfully"}
 
 
 def fetch_listings():

@@ -1,5 +1,6 @@
 # controllers/admin_controller.py
 # File created by David Jackson
+# updated by jasmine mark 11/12/26 - added deactivate_user, and restore_user service funstions, and routes for them. users deactivated instead of deleted.
 
 """
 Admin Controller
@@ -20,7 +21,8 @@ from flask import Blueprint, jsonify, request, session, abort, render_template  
 # Import service functions
 from services.admin_service import (
     fetch_users,
-    remove_user,
+    deactivate_user,
+    restore_user,
     fetch_listings,
     remove_listing,
     fetch_storefronts,
@@ -96,23 +98,38 @@ def get_users():
     return jsonify(users)
 
 
-@admin_bp.route("/users/<int:user_id>", methods=["DELETE"])
-def delete_user_route(user_id):
+# Replaces DELETE /admin/users/<id> -Jasmine Mark 11/12/26
+# Users are deactivated instead of deleted, so their storefronts, listings and orders are kept.
+def _user_status_response(action):
+    try:
+        return jsonify(action()), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except LookupError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@admin_bp.route("/users/<int:user_id>/deactivate", methods=["PATCH"])
+def deactivate_user_route(user_id):
     """
-    DELETE /admin/users/<user_id>
+    PATCH /admin/users/<user_id>/deactivate
 
-    Removes a specific user from the system.
-
-    URL Parameter:
-        user_id: ID of the user to delete
+    Deactivates a user. They can no longer log in, but their history is kept.
+    An admin can't deactivate their own account.
     """
-
-    # Ensure only admins can perform user deletion
     require_admin()
+    return _user_status_response(lambda: deactivate_user(user_id, session.get("user_id")))
 
-    result = remove_user(user_id)
 
-    return jsonify(result)
+@admin_bp.route("/users/<int:user_id>/restore", methods=["PATCH"])
+def restore_user_route(user_id):
+    """
+    PATCH /admin/users/<user_id>/restore
+
+    Restores a deactivated user so they can log in again.
+    """
+    require_admin()
+    return _user_status_response(lambda: restore_user(user_id))
 
 
 @admin_bp.route("/listings", methods=["GET"])

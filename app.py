@@ -35,6 +35,26 @@ def create_app():
     def request_too_large(_err):
         return {"error": "Image is too large. Total upload size must be under 25 MB."}, 413
 
+    #sign out users whose account was deactivated while they were logged in, on their next request - jasmine Mark 11/12/26
+    @app.before_request
+    def sign_out_deactivated_users():
+        user_id = session.get('user_id')
+        if not user_id or request.endpoint == 'static':
+            return None
+        try:
+            from models.admin_model import _is_user_active
+            if _is_user_active(user_id) is not False:
+                return None
+        except Exception as e:
+            # Don't take down every page if the lookup fails; the login check still blocks them.
+            print(f"[auth] Could not check account status: {e}")
+            return None
+
+        session.clear()
+        if request.path.startswith('/api/') or request.method != 'GET':
+            return {"error": "This account has been deactivated. Contact an administrator."}, 401
+        return redirect(url_for('auth.login'))
+
     # Run DB migrations on every startup so new columns are always present
     try:
         from init_db import create_vault_tables
