@@ -3,7 +3,6 @@ import os
 from flask import Flask, render_template, redirect, url_for, session, request
 from flask_wtf.csrf import CSRFProtect #Added by rochele solmon
 
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))) # Updated 3/19/2026 by Ryan Grimes
 
 from controllers.listing_controller import listing_bp

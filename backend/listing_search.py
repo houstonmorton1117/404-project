@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 from psycopg2.extras import RealDictCursor
 
 
-from backend.db import get_db_connection  
+from backend.db import get_connection
 
 listing_search = Blueprint("listing_search", __name__)
 
@@ -56,7 +56,7 @@ def search_listings():
         LIMIT %s OFFSET %s
     """
 
-    conn = get_db_connection()
+    conn = get_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params)

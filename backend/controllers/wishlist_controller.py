@@ -12,17 +12,12 @@ It processes requests, calls service methods, and returns JSON responses.
 """
 
 from flask import Blueprint, request, jsonify, session
+from utils.auth_utils import get_current_user
 from services.wishlist_service import WishlistService
 
 wishlist_bp = Blueprint('wishlist', __name__, url_prefix="/api")
 wishlist_service = WishlistService()
 
-
-def get_current_user():
-    user_id = session.get("user_id")
-    if not user_id:
-        return None
-    return {"id": int(user_id), "role": session.get("role", "user")}
 
 @wishlist_bp.route('/wishlist', methods=['POST'])
 def add_to_wishlist():
