@@ -1,7 +1,7 @@
 # By Ryan Grimes - Updated 3/19/2026
 # Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error
 from flask import Blueprint, request, session, redirect, url_for, render_template, flash, jsonify
-from services.auth_services import AuthService 
+from services.auth_services import AuthService, ACCOUNT_DEACTIVATED
 from config.db import get_connection
 from models.checkout_model import check_listing_availability, OutOfStockError
 
@@ -39,6 +39,11 @@ def login():
                 )
 
             success, role = service.validate_login(user, pw, conn)
+
+            # Deactivated account: not counted as a failed attempt - jasmine Mark 11/12/26
+            if role == ACCOUNT_DEACTIVATED:
+                return ("This account has been deactivated. Contact an administrator. "
+                        "<a href='/auth/login'>Back to Login</a>", 403)
 
             if success:
                 # Reset failed login attempts after a successful login
@@ -291,6 +296,11 @@ def admin_login():
                 )
 
             success, role = service.validate_login(user, pw, conn)
+
+            # Deactivated account: not counted as a failed attempt - Jasmine Mark 11/12/26
+            if role == ACCOUNT_DEACTIVATED:
+                return ("This account has been deactivated. Contact an administrator. "
+                        "<a href='/auth/admin-login'>Back to Admin Login</a>", 403)
 
 
             # Edited by rochele solmon: verify that the authenticated account

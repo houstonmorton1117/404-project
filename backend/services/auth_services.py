@@ -5,6 +5,9 @@ from utils.auth_utils import hash_password, verify_password
 #added by jasmine mark 11/12/26
 HAMPTON_EMAIL_DOMAINS = ("@hamptonu.edu", "@my.hamptonu.edu")
 
+# validate_login() returns this in place of the role when the password is right but an admin has deactivated the account.
+ACCOUNT_DEACTIVATED = "deactivated"
+
 # stand-in password rule for the Account Settings change-password form.
 # replace with josh's password rules function once his branch is merged
 def is_valid_password(pw):
@@ -33,11 +36,14 @@ class AuthService:
     def validate_login(self, username, password, db_conn):
         try: 
             cur = db_conn.cursor() #Creates a pointer
-            cur.execute("SELECT password, role FROM users WHERE username = %s", (username,)) #Has pointer search for occurence of entered credentials
+            cur.execute("SELECT password, role, is_active FROM users WHERE username = %s", (username,)) #Has pointer search for occurence of entered credentials
             result = cur.fetchone() #Fetches the row of data that matches the query
             cur.close() #Closes cursor
 
             if result and verify_password(result[0], password): #If username and password hash match return true
+                # Deactivated accounts can't log in, even with the right password - Jasmine Mark 11/12/26
+                if not result[2]:
+                    return False, ACCOUNT_DEACTIVATED
                 return True, result [1]
         
             return False, None
