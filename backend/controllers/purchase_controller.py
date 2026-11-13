@@ -12,18 +12,13 @@ It processes requests, calls service methods, and returns JSON responses.
 """
 
 from flask import Blueprint, request, jsonify, session
+from utils.auth_utils import get_current_user
 from services.purchase_service import PurchaseService
 
 purchase_bp = Blueprint('purchase', __name__, url_prefix="/api")
 purchase_service = PurchaseService()
 
 
-def get_current_user():
-    user_id = session.get("user_id")
-    if not user_id:
-        return None
-    return {"id": int(user_id), "role": session.get("role", "user")}
-    
 @purchase_bp.route('/purchases', methods=['POST'])
 def record_purchase():
     """
