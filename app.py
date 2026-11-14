@@ -57,11 +57,15 @@ def create_app():
         return redirect(url_for('auth.login'))
 
     # Run DB migrations on every startup so new columns are always present
+    # If the database can't be set up, stop with a clear message instead of starting an app that fails later with confusing errors. - added by jasmine mark 11/14/26
     try:
         from init_db import create_vault_tables
         create_vault_tables()
-    except Exception as _db_init_err:
-        print(f"[startup] DB migration warning: {_db_init_err}")
+    except Exception as err:
+        raise RuntimeError(
+            f"Could not set up the database: {str(err).strip()}. "
+            "Check DB_HOST, DB_NAME, DB_USER and DB_PASSWORD in .env."
+        ) from err
 
     #The Welcome Screen (Default) Ryan Grimes 3/19/2026
     @app.route('/')
