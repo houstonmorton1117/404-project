@@ -1,6 +1,7 @@
 #By Ryan Grimes 2/27/2026
 #Register user and validate login
 from utils.auth_utils import hash_password, verify_password
+from models.admin_model import set_user_active
 
 #added by jasmine mark 11/12/26
 HAMPTON_EMAIL_DOMAINS = ("@hamptonu.edu", "@my.hamptonu.edu")
@@ -127,3 +128,25 @@ class AuthService:
             print(f"Change Password Error: {e}")
             db_conn.rollback()
             return False, "Could not change password right now."
+
+    # Deactivate my account (Settings tab) - added by Jasmine Mark 11/13/26
+    # this requires the current password; only an admin can restore the account afterwards.
+    def deactivate_own_account(self, user_id, password, db_conn):
+        if not password:
+            return False, "Please enter your password."
+
+        try:
+            cur = db_conn.cursor()
+            cur.execute("SELECT password FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            cur.close()
+            if not row or not verify_password(row[0], password):
+                return False, "Password is incorrect."
+
+            if not set_user_active(user_id, False):
+                return False, "Account not found."
+            return True, "Your account has been deactivated."
+        except Exception as e:
+            print(f"Deactivate Account Error: {e}")
+            db_conn.rollback()
+            return False, "Could not deactivate your account right now."

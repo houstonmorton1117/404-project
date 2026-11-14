@@ -1,5 +1,6 @@
 # By Ryan Grimes - Updated 3/19/2026
 # Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error
+# updated by jasmine mark 11/13/26 - added deactivate my account function. admins cannot deactivate their own account
 from flask import Blueprint, request, session, redirect, url_for, render_template, flash, jsonify
 from services.auth_services import AuthService, ACCOUNT_DEACTIVATED
 from config.db import get_connection
@@ -391,3 +392,22 @@ def change_account_password():
         request.form.get('new_password'),
         request.form.get('confirm_password'),
         conn))
+
+
+# Deactivate my account (Settings tab)- added by Jasmine Mark 11/13/26
+# admins can't deactivate their own account, so the site can't be left without an admin.
+@auth_bp.route('/account/deactivate', methods=['POST'])
+def deactivate_own_account_route():
+    if (session.get('role') or '').lower() == 'admin':
+        return jsonify({"error": "Administrators can't deactivate their own account."}), 400
+
+    response = _settings_request(lambda user_id, conn: service.deactivate_own_account(
+        user_id, request.form.get('password'), conn))
+    if response[1] != 200:
+        return response
+
+    # Lg the user out; flash after clearing, since flashed messages live in the session
+    session.clear()
+    flash("Your account has been deactivated.", "info")
+    return jsonify({"message": "Your account has been deactivated.",
+                    "redirect": url_for('auth.login')}), 200
