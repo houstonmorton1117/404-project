@@ -171,6 +171,49 @@ def get_orders_by_user_id(user_id):
     ]
 
 
+# Seller Sales History - added 11/14/26
+def get_sales_by_seller_id(seller_id):
+    """
+    Returns every item sold from the seller's storefront, newest first.
+    One row per order item, so an order that mixes items from several stores
+    only shows this seller their own items, and the amount is just their share.
+    Buyer name is the one the buyer entered at checkout.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT oi.id, o.confirmation_number, o.created_at, o.order_status,
+               o.buyer_first_name, o.buyer_last_name,
+               oi.listing_id, oi.item_name, oi.selected_size,
+               oi.quantity, oi.price_at_purchase
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        JOIN listings l ON l.id = oi.listing_id
+        JOIN storefronts s ON s.id = l.storefront_id
+        WHERE s.owner_id = %s
+        ORDER BY o.created_at DESC, oi.id ASC;
+    """, (seller_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [
+        {
+            "order_item_id": r[0],
+            "confirmation_number": r[1],
+            "sold_at": str(r[2]),
+            "order_status": r[3],
+            "buyer_name": f"{r[4]} {r[5]}".strip(),
+            "listing_id": r[6],
+            "item_name": r[7],
+            "selected_size": r[8],
+            "quantity": r[9],
+            "unit_price": float(r[10]),
+            "amount": round(float(r[10]) * r[9], 2),
+        }
+        for r in rows
+    ]
+
+
 def remove_purchased_from_wishlist(user_id, listing_ids):
     """
     Removes wishlist entries for listings the user just purchased.
