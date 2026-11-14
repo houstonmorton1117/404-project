@@ -225,6 +225,19 @@ def check_listing_availability(listing_id, quantity_requested, size=None, conn=N
         title, price, status, qty_on_hand, is_made_to_order = row
         if status not in ("ACTIVE", "SOLD_OUT"):
             raise OutOfStockError(f'"{title}" is no longer available.')
+
+        # Items from a deactivated seller can't be bought or added to a bag - updated by Jasmine Mark 11/14/26
+        cur.execute("""
+            SELECT u.is_active
+            FROM listings l
+            JOIN storefronts s ON s.id = l.storefront_id
+            JOIN users u ON u.id = s.owner_id
+            WHERE l.id = %s
+        """, (listing_id,))
+        owner = cur.fetchone()
+        if not owner or not owner[0]:
+            raise OutOfStockError(f'"{title}" is no longer available.')
+        
         if not is_made_to_order:
             if status == "SOLD_OUT" or (qty_on_hand is not None and int(qty_on_hand) <= 0):
                 raise OutOfStockError(f'"{title}" is sold out.')
