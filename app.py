@@ -13,7 +13,11 @@ from controllers.admin_controller import admin_bp
 from controllers.auth_controller import auth_bp # Updated 3/19/2026 by Ryan Grimes
 from controllers.return_controller import returns_bp
 from controllers.checkout_controller import checkout_bp
+from controllers.notification_controller import notification_bp
+from controllers.follow_controller import follow_bp
 from init_db import create_vault_tables
+from utils.payments import get_publishable_key
+from backend.listing_search import listing_search
 
 
 def create_app():
@@ -23,6 +27,42 @@ def create_app():
 
     app.secret_key = os.environ['SECRET_KEY'] # Updated 10/26/26 by Obi Achebe
     csrf = CSRFProtect(app) #added by Rochele Solmon
+
+     # Secure session cookie settings - Rochele
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=os.getenv(
+            "SESSION_COOKIE_SECURE", "false"
+        ).lower() == "true"
+    )
+
+     # Security response headers (Rochele 11/13/2026)
+    @app.after_request
+    def add_security_headers(response):
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://js.stripe.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' https://api.stripe.com; "
+            "frame-src https://js.stripe.com https://hooks.stripe.com; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self' https://checkout.stripe.com"
+        )
+        return response
+
+    # Allow image uploads up to 25MB (4 listing photos per request).
+    # Keep in sync with .platform/nginx/conf.d/upload_size.conf
+    app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
+
+    @app.errorhandler(413)
+    def request_too_large(_err):
+        return {"error": "Image is too large. Total upload size must be under 25 MB."}, 413
 
     # Run DB migrations on every startup so new columns are always present
     try:
@@ -40,6 +80,11 @@ def create_app():
     @app.route('/storefront')
     def storefront():
         return render_template('storefront.html')
+        
+    #Route to the lsiting search - 11/12/2026
+    @app.route('/listings')
+    def listings_page():
+        return render_template('listings.html')
 
     # Route to the "Create Storefront" form - Updated 3/22/2026
     @app.route('/create-storefront')
@@ -51,17 +96,13 @@ def create_app():
     def create_listing():
         return render_template('create_listing.html')
 
-    #Route to the Cart screen - Updated 3/22/2026
-    @app.route('/cart')
-    def cart():
-        return render_template('cart.html')
-
     #Route to the Checkout - Updated 4/22/2026
     @app.route('/checkout')
     def checkout():
         if not session.get("user"):
             return redirect(url_for("auth.login", next=request.path))
-        return render_template('checkout.html')
+        # Stripe.js needs the publishable (browser-safe) key; the secret key never leaves the server.
+        return render_template('checkout.html', stripe_publishable_key=get_publishable_key())
 
     # Route to the Order Confirmation page - Added 4/22/2026
     @app.route('/order-confirmation')
@@ -87,6 +128,9 @@ def create_app():
     app.register_blueprint(admin_bp) # Updated 3/19/2026 by Ryan Grimes
     app.register_blueprint(returns_bp)
     app.register_blueprint(checkout_bp, url_prefix='/api')
+    app.register_blueprint(notification_bp)
+    app.register_blueprint(follow_bp)
+    app.register_blueprint(listing_search)
 
     @app.get("/health")
     def health():
