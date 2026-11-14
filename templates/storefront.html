@@ -258,15 +258,18 @@ Updated nav bar
   <!-- Main page content: Holds the storefrotn cards and pagination -->
   <main class="page-content">
 
+    <!-- Active category filter (filled in by storefront.js when ?category= is set) -->
+    <div class="category-filter-bar" id="categoryFilterBar" hidden></div>
+
     <section class="storefront-grid" id="storefrontGrid">
     </section>
 
     <!-- Page controls that live at the bottom of the page under the grids where users can go back and forth from page to page. 
-     Currently only placeholders as page buttons are not functional-->
+     Shows 4 storefronts per page; wired up in storefront.js and respects the category filter + search.-->
     <div class="pagination">
-      <button class="page-btn">Previous</button> <!-- Previous button -->
-      <span class="page-indicator">Page 1</span> <!-- displays page number  -->
-      <button class="page-btn">Next</button> <!-- Next button -->
+      <button type="button" class="page-btn" id="prevPageBtn" disabled>Previous</button> <!-- Previous button -->
+      <span class="page-indicator" id="pageIndicator">Page 1</span> <!-- displays page number  -->
+      <button type="button" class="page-btn" id="nextPageBtn" disabled>Next</button> <!-- Next button -->
     </div> <!-- end pagination class -->
 
   </main> <!-- end of main page content -->

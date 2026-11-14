@@ -172,16 +172,129 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Render all storefront cards.
+// PAGINATION + FILTER STATE
+// Pagination added: 4 storefronts per page. Works together with the
+// ?category= filter (from All Categories) and the search bar.
+const STOREFRONTS_PER_PAGE = 4;
+
+const pageParams = new URLSearchParams(window.location.search);
+let activeCategory = (pageParams.get("category") || "").trim();
+let searchQuery = "";
+let currentPage = Math.max(1, parseInt(pageParams.get("page"), 10) || 1);
+
+const prevPageBtn = document.getElementById("prevPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
+const pageIndicator = document.getElementById("pageIndicator");
+const categoryFilterBar = document.getElementById("categoryFilterBar");
+
+// Apply the category filter, then the search query.
+function getFilteredStorefronts() {
+  const category = activeCategory.toLowerCase();
+  const query = searchQuery.toLowerCase();
+
+  return storefronts.filter(store => {
+    const matchesCategory = !category ||
+      store.categories.some(c => String(c).toLowerCase() === category);
+    const matchesSearch = !query ||
+      String(store.name || "").toLowerCase().includes(query);
+    return matchesCategory && matchesSearch;
+  });
+}
+
+// Keep ?category= and ?page= in the URL so Back returns to the same page.
+function syncUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (activeCategory) params.set("category", activeCategory); else params.delete("category");
+  if (currentPage > 1) params.set("page", String(currentPage)); else params.delete("page");
+  const qs = params.toString();
+  history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+}
+
+// Show which category is active, with a way to clear it.
+function renderCategoryFilterBar() {
+  if (!categoryFilterBar) return;
+  categoryFilterBar.replaceChildren();
+
+  if (!activeCategory) {
+    categoryFilterBar.hidden = true;
+    return;
+  }
+
+  const label = document.createElement("span");
+  label.textContent = `Category: ${activeCategory}`;
+
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "category-clear-btn";
+  clearBtn.textContent = "Clear ✕";
+  clearBtn.addEventListener("click", () => {
+    activeCategory = "";
+    currentPage = 1;
+    renderStorefronts();
+  });
+
+  categoryFilterBar.append(label, clearBtn);
+  categoryFilterBar.hidden = false;
+}
+
+function showGridMessage(text) {
+  // XSS protection added by Rochele Solmon: text is inserted as text.
+  const message = document.createElement("p");
+  message.style.color = "#c9c9c9";
+  message.style.fontStyle = "italic";
+  message.style.textAlign = "center";
+  message.style.gridColumn = "1/-1";
+  message.style.padding = "2rem";
+  message.textContent = text;
+  grid.replaceChildren(message);
+}
+
+// Render the current page of (filtered) storefront cards.
 function renderStorefronts() {
   if (!grid) return;
 
-  grid.replaceChildren();
+  renderCategoryFilterBar();
 
-  storefronts.forEach(store => {
-    const card = createCard(store);
-    grid.appendChild(card);
-  });
+  const filtered = getFilteredStorefronts();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / STOREFRONTS_PER_PAGE));
+  currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  if (!filtered.length) {
+    if (searchQuery && activeCategory) {
+      showGridMessage(`No ${activeCategory} storefronts found for "${searchQuery}"`);
+    } else if (searchQuery) {
+      showGridMessage(`No storefronts found for "${searchQuery}"`);
+    } else if (activeCategory) {
+      showGridMessage(`No storefronts in ${activeCategory} yet.`);
+    } else {
+      showGridMessage("No storefronts yet.");
+    }
+  } else {
+    const start = (currentPage - 1) * STOREFRONTS_PER_PAGE;
+    grid.replaceChildren(
+      ...filtered.slice(start, start + STOREFRONTS_PER_PAGE).map(createCard)
+    );
+  }
+
+  if (pageIndicator) pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  if (prevPageBtn) prevPageBtn.disabled = currentPage <= 1;
+  if (nextPageBtn) nextPageBtn.disabled = currentPage >= totalPages;
+
+  syncUrl();
+}
+
+function goToPage(page) {
+  currentPage = page;
+  renderStorefronts();
+  if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+if (prevPageBtn) {
+  prevPageBtn.addEventListener("click", () => goToPage(currentPage - 1));
+}
+
+if (nextPageBtn) {
+  nextPageBtn.addEventListener("click", () => goToPage(currentPage + 1));
 }
 
 // FETCH STOREFRONTS FROM FLASK API
@@ -265,44 +378,13 @@ if (navOverlay && navPane) {
 // SEARCH BAR FUNCTIONALITY
 const searchInput = document.getElementById("searchInput");
 
-function filterStorefronts(query) {
-  const filtered = storefronts.filter(store =>
-    String(store.name || "").toLowerCase().includes(query.toLowerCase())
-  );
-
-  if (!grid) return;
-
-  grid.replaceChildren();
-
-  if (!filtered.length) {
-    // XSS protection added by Rochele Solmon: search text is inserted as text.
-    const message = document.createElement("p");
-    message.style.color = "#c9c9c9";
-    message.style.fontStyle = "italic";
-    message.style.textAlign = "center";
-    message.style.gridColumn = "1/-1";
-    message.style.padding = "2rem";
-    message.textContent = `No storefronts found for "${query}"`;
-    grid.appendChild(message);
-    return;
-  }
-
-  filtered.forEach(store => {
-    const card = createCard(store);
-    grid.appendChild(card);
-  });
-}
-
-// Filter storefronts as the user types.
+// Filter storefronts as the user types (stays inside the active category).
+// Typing a new search starts back at page 1.
 if (searchInput) {
   searchInput.addEventListener("input", () => {
-    const query = searchInput.value.trim();
-
-    if (!query) {
-      renderStorefronts();
-    } else {
-      filterStorefronts(query);
-    }
+    searchQuery = searchInput.value.trim();
+    currentPage = 1;
+    renderStorefronts();
   });
 }
 
