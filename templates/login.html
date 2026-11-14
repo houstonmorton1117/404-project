@@ -86,6 +86,16 @@
             color: var(--gold-bright);
             border-color: var(--ink);
         }
+
+        /* flashed messages (e.g.account deactivated, signup successful) - added 11/13/26 by Jasmine Mark */
+        .flash-msg {
+            margin: 0 0 14px;
+            padding: 10px 12px;
+            border: 1px solid rgba(34, 26, 22, 0.25);
+            border-radius: 3px;
+            font-size: 0.85rem;
+            color: var(--ink);
+        }
     </style>
 </head>
 <body>
@@ -93,6 +103,10 @@
         <div class="card-stage ticket-card">
             <span class="kicker">Box Office</span>
             <h2 class="marquee-title">WELCOME BACK</h2>
+
+            {% with messages = get_flashed_messages() %}
+                {% for m in messages %}<p class="flash-msg" role="status">{{ m }}</p>{% endfor %}
+            {% endwith %}
 
             <form action="{{ url_for('auth.login') }}" method="POST">
                 <!-- CSRF protection added by Rochele Solmon -->

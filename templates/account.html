@@ -1,6 +1,7 @@
 <!--Made by Madison Boyd on  3/23/2026-->
 <!-- Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error -->
 <!-- Updated by Jasmine Mark on 11/12/26 to add the Settings tab for changing email and password -->
+<!-- Updated by Jasmine Mark on 11/12/26 to add account deactivation -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -159,6 +160,11 @@
         .settings-msg { margin-top: 10px; font-size: 0.85rem; min-height: 1em; }
         .settings-msg.error { color: #ff6b6b; }
         .settings-msg.success { color: #7bd88f; }
+        .danger-zone { border-color: #8b2d2d; }
+        .danger-zone h4 { color: #ff6b6b; }
+        .danger-zone p { color: #bbb; font-size: 0.85rem; margin: 0 0 6px; }
+        .settings-btn.danger-btn { border-color: #ff4444; color: #ff4444; }
+        .settings-btn.danger-btn:hover { background: rgba(255, 68, 68, 0.15); }
     </style>
 </head>
 <body>
@@ -235,6 +241,18 @@
             <button class="settings-btn" type="submit">Change Password</button>
             <p class="settings-msg" role="status"></p>
         </form>
+
+        {# Admins can't deactivate their own account - Jasmine mark 11/13/26 #}
+        {% if (session.get('role') or '')|lower != 'admin' %}
+        <form id="deactivateForm" class="settings-section danger-zone" data-endpoint="{{ url_for('auth.deactivate_own_account_route') }}">
+            <h4>Deactivate My Account</h4>
+            <p>Your storefront and listings will be hidden and you'll be logged out. Only an administrator can restore your account.</p>
+            <label for="deactivatePassword">Enter your password to confirm</label>
+            <input id="deactivatePassword" name="password" type="password" required autocomplete="current-password">
+            <button class="settings-btn danger-btn" type="submit">Deactivate My Account</button>
+            <p class="settings-msg" role="status"></p>
+        </form>
+        {% endif %}
     </div>
 </div>
 
@@ -621,6 +639,10 @@
             msg.textContent = "";
             msg.className = "settings-msg";
 
+            if (formId === "deactivateForm" && !confirm("Deactivate your account? You'll be logged out and only an administrator can restore it.")) {
+                return;
+            }
+
             if (formId === "passwordForm" && form.new_password.value !== form.confirm_password.value) {
                 msg.textContent = "New passwords do not match.";
                 msg.classList.add("error");
@@ -640,6 +662,10 @@
                     return;
                 }
                 if (!res.ok) throw new Error(data.error || "Something went wrong. Please try again.");
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                    return;
+                }
                 msg.textContent = data.message || "Saved.";
                 msg.classList.add("success");
                 if (resetOnSuccess) form.reset();
@@ -655,6 +681,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         wireSettingsForm("emailForm");
         wireSettingsForm("passwordForm", { resetOnSuccess: true });
+        wireSettingsForm("deactivateForm");
     });
 
     document.addEventListener("DOMContentLoaded", loadMyListings);

@@ -207,3 +207,67 @@ def test_password_route_rejects_wrong_current_password(client):
         "confirm_password": "newpassword1",
     })
     assert res.status_code == 400
+
+
+# ---deactivate my account (added 11/13/26) ----
+
+@pytest.fixture
+def deactivated(monkeypatch):
+    """Records calls to set_user_active instead of touching the database."""
+    calls = []
+
+    def fake_set_user_active(user_id, is_active):
+        calls.append((user_id, is_active))
+        return 1
+
+    monkeypatch.setattr("services.auth_services.set_user_active", fake_set_user_active)
+    return calls
+
+def test_deactivate_service_requires_password(svc, db, deactivated):
+    ok, _ = svc.deactivate_own_account(1, "", db)
+    assert not ok
+    assert deactivated == []
+
+
+def test_deactivate_service_rejects_wrong_password(svc, db, deactivated):
+    ok, msg = svc.deactivate_own_account(1, "wrongpassword", db)
+    assert not ok and "incorrect" in msg
+    assert deactivated == []
+
+
+def test_deactivate_route_requires_login(client, deactivated):
+    res = client.post("/auth/account/deactivate", data={"password": "oldpassword"})
+    assert res.status_code == 401
+    assert deactivated == []
+
+
+def test_deactivate_route_rejects_wrong_password(client, deactivated):
+    login_as(client, 1)
+    res = client.post("/auth/account/deactivate", data={"password": "wrongpassword"})
+    assert res.status_code == 400
+    assert deactivated == []
+    with client.session_transaction() as s:
+        assert s.get("user_id") == 1
+
+
+def test_deactivate_route_deactivates_and_logs_out(client, deactivated):
+    login_as(client, 1)
+    res = client.post("/auth/account/deactivate",
+                      data={"password": "oldpassword", "user_id": "2"})
+    assert res.status_code == 200
+    assert res.get_json()["redirect"].endswith("/auth/login")
+    # Uses the session user (1), never the user_id sent in the form (2)
+    assert deactivated == [(1, False)]
+    with client.session_transaction() as s:
+        assert "user" not in s and "user_id" not in s
+        assert ("info", "Your account has been deactivated.") in s.get("_flashes", [])
+
+def test_admin_cannot_deactivate_own_account(client, deactivated):
+    with client.session_transaction() as s:
+        s["user"] = "admin"
+        s["user_id"] = 1
+        s["role"] = "Admin"
+    res = client.post("/auth/account/deactivate", data={"password": "oldpassword"})
+    assert res.status_code == 400
+    assert "Administrators" in res.get_json()["error"]
+    assert deactivated == []
