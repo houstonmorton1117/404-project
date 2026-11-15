@@ -265,7 +265,7 @@ def create_vault_tables():
                 has_damage BOOLEAN NOT NULL,
                 damage_image_url TEXT,
                 status VARCHAR(20) NOT NULL DEFAULT 'pending'
-                    CHECK (status IN ('pending', 'reviewed', 'resolved')),
+                    CHECK (status IN ('pending', 'reviewed', 'approved', 'rejected', 'resolved')),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 is_deleted BOOLEAN DEFAULT FALSE,
@@ -281,6 +281,24 @@ def create_vault_tables():
         cur.execute("ALTER TABLE returns ADD COLUMN IF NOT EXISTS damage_image_url TEXT;")
         cur.execute("ALTER TABLE returns ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
         cur.execute("ALTER TABLE returns ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;")
+
+        # Return approvals - added 11/14/26. An admin can now mark a return 'approved' (which refunds
+        # the order automatically) or 'rejected'. Databases created before this still have the old
+        # three-status rule, so swap it for the new one once.
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'returns_status_check'
+                      AND pg_get_constraintdef(oid) LIKE '%approved%'
+                ) THEN
+                    ALTER TABLE returns DROP CONSTRAINT IF EXISTS returns_status_check;
+                    ALTER TABLE returns ADD CONSTRAINT returns_status_check
+                        CHECK (status IN ('pending', 'reviewed', 'approved', 'rejected', 'resolved'));
+                END IF;
+            END $$;
+        """)
 
         # ________________________________________________________
         # CART ITEMS TABLE (Persistent Bag)
@@ -338,6 +356,31 @@ def create_vault_tables():
         cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS card_last4 VARCHAR(4);")
         cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'PAID';")
         cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS transaction_ref VARCHAR(40);")
+
+        # Payment statuses - added 11/14/26 for the payment token system.
+        # New orders start as AUTHORIZED (card on hold) and become PAID once the charge goes through;
+        # the Stripe webhook and approved returns can move them to FAILED or REFUNDED.
+        # Only these four values are allowed from now on. NOT VALID means rows saved before this
+        # change aren't re-checked, so an older database with other values still starts up.
+        # Each step only runs if it hasn't been done yet, because this file runs on every startup.
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'orders' AND column_name = 'payment_status'
+                      AND column_default LIKE '%PAID%'
+                ) THEN
+                    ALTER TABLE orders ALTER COLUMN payment_status SET DEFAULT 'AUTHORIZED';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_payment_status_check') THEN
+                    ALTER TABLE orders ADD CONSTRAINT orders_payment_status_check
+                        CHECK (payment_status IN ('AUTHORIZED', 'PAID', 'FAILED', 'REFUNDED')) NOT VALID;
+                END IF;
+            END $$;
+        """)
+        # The Stripe webhook looks orders up by their payment intent id.
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_transaction_ref ON orders (transaction_ref);")
 
         # ________________________________________________________
         # ORDER ITEMS TABLE (Items per order)

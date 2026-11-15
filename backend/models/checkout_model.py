@@ -28,7 +28,7 @@ def _connection(conn=None):
 
 def create_order(user_id, confirmation_number, buyer_first_name, buyer_last_name,
                  buyer_email, buyer_contact, buyer_meeting_location, total_amount,
-                 card_last4=None, transaction_ref=None, payment_status='PAID', payment_method='CARD',
+                 card_last4=None, transaction_ref=None, payment_status='AUTHORIZED', payment_method='CARD',
                  conn=None):
     with _connection(conn) as conn, conn.cursor() as cur:
         cur.execute("""
@@ -372,3 +372,59 @@ def update_listing_quantity_inventory(listing_id, purchased_qty, conn=None):
                 f"Insufficient stock for listing {listing_id}: "
                 f"requested {purchased_qty}, available {available}."
             )
+
+
+# ________________________________________________________
+# Payment status helpers - added 11/14/26 for the payment token system.
+# orders.transaction_ref holds the Stripe PaymentIntent id ("pi_...") for each order.
+# ________________________________________________________
+
+def update_order_payment_status(order_id, payment_status, conn=None):
+    """Sets one order's payment_status (AUTHORIZED, PAID, FAILED or REFUNDED)."""
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE orders SET payment_status = %s WHERE id = %s;",
+            (payment_status, order_id),
+        )
+
+
+def get_order_payment_by_ref(transaction_ref, conn=None, for_update=False):
+    """Finds the order paid with a Stripe PaymentIntent. Returns
+    {"id", "user_id", "confirmation_number", "total_amount", "payment_status", "transaction_ref"}
+    or None. With for_update=True the order row stays locked until the caller's transaction ends."""
+    lock = " FOR UPDATE" if for_update else ""
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, user_id, confirmation_number, total_amount, payment_status, transaction_ref "
+            "FROM orders WHERE transaction_ref = %s" + lock + ";",
+            (transaction_ref,),
+        )
+        row = cur.fetchone()
+    return _payment_row(row)
+
+
+def get_order_payment_by_confirmation(confirmation_number, conn=None, for_update=False):
+    """Same as get_order_payment_by_ref, but looks the order up by its confirmation number.
+    Ignores case and surrounding spaces, since buyers type this number by hand on the returns form."""
+    lock = " FOR UPDATE" if for_update else ""
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, user_id, confirmation_number, total_amount, payment_status, transaction_ref "
+            "FROM orders WHERE UPPER(confirmation_number) = UPPER(TRIM(%s))" + lock + ";",
+            (confirmation_number or "",),
+        )
+        row = cur.fetchone()
+    return _payment_row(row)
+
+
+def _payment_row(row):
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "user_id": row[1],
+        "confirmation_number": row[2],
+        "total_amount": float(row[3]),
+        "payment_status": row[4],
+        "transaction_ref": row[5],
+    }
