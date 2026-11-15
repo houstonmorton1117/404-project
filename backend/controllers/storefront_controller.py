@@ -4,6 +4,8 @@
 # Updated by Day Ekoi - Iteration 4 3/25/26
 # Updated by Day Ekoi - Iteration 5 - 4/20/26 - added edit storefront route, create listing route, S3 image upload endpoint, fixed session key
 
+#updated by jasmine mark 11/14/26 - Hide stores whose owner has been deactivated (admins can still see them)
+
 """
 storefront_controller.py
 
@@ -19,7 +21,7 @@ Functions:
 """
 
 from flask import Blueprint, request, jsonify, render_template, session
-
+from utils.auth_utils import get_current_user
 from services.storefront_service import (
     create_storefront_service,
     get_my_storefront_service,
@@ -35,25 +37,6 @@ storefront_bp = Blueprint("storefront_bp", __name__, url_prefix="/api/storefront
 
 # Page blueprint
 storefront_pages_bp = Blueprint("storefront_pages_bp", __name__)
-
-
-def get_current_user():
-    """
-    Reads the authenticated user from the server-side session (set at login
-    in auth_controller.py), not from client-supplied headers. A previous
-    version trusted an X-User-Id / X-User-Role header pair directly, which
-    let any request impersonate any user (including admin) just by setting
-    those headers -- the ownership checks in storefront_service.py were
-    real, but the identity they checked against was attacker-controlled.
-    """
-    user_id = session.get("user_id")
-    role = session.get("role", "user")
-
-    if not user_id:
-        return None
-
-    return {"id": int(user_id), "role": role}
-
 
 #_________________________________________________________
 # Page Routing
@@ -139,6 +122,9 @@ def get_storefront_by_id_route(storefront_id):
         is_owner = current_user is not None and storefront["owner_id"] == current_user["id"]
         is_admin = current_user is not None and current_user.get("role") == "admin"
         if storefront.get("is_active") is False and not is_owner and not is_admin:
+            return jsonify({"error": "Storefront not found."}), 404
+        # Hide stores whose owner has been deactivated (admins can still see them)
+        if storefront.get("owner_is_active") is False and not is_admin:
             return jsonify({"error": "Storefront not found."}), 404
         return jsonify(storefront), 200
     except Exception as e:

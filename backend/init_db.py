@@ -15,6 +15,8 @@ Run this file manually when:
 # CSC 405 Sp 26'
 # Updated by Day Ekoi - Iteration 5 - 4/20/26 - added contact_info, preview_image_1-4, categories columns to storefronts; added ALTER TABLE migrations
 
+# updated by jasmine mark 11/14/26 - re-raise errors on failure so startup can report them, and rollback half-finished changes
+
 import psycopg2
 import os
 from dotenv import load_dotenv
@@ -23,6 +25,8 @@ load_dotenv()
 
 
 def create_vault_tables():
+    # errors are re-reasied (not just printed) so startup can report them
+    conn = None
     try:
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST"),
@@ -58,6 +62,12 @@ def create_vault_tables():
         cur.execute("""
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+        """)
+
+        # Account deactivation: admins deactivate users instead of deleting them, so their storefronts, listings and orders are kept. Existing users start active. - Jasmine Mark 11/12/26
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
         """)
 
 
@@ -403,10 +413,20 @@ def create_vault_tables():
         print("DATABASE INITIALIZED: users, storefronts, listings, listing_images, listing_sizes, purchases, wishlist, orders, order_items, storefront_follows, and notifications tables are ready.")
 
         cur.close()
-        conn.close()
 
-    except Exception as e:
-        print(f"SCHEMA ERROR: {e}")
+    except Exception:
+        # undo any half-finished changes, then pass the error on to the caller
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass  # connection already broken; keep the original error
+        raise
+
+    finally:
+        # Always close the connection, even after an error
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":
