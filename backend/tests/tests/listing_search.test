@@ -1,0 +1,201 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// Helper to flush pending microtasks (resolved fetch promises)
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+function mockFetchResponse(data, ok = true) {
+  return Promise.resolve({
+    ok,
+    json: () => Promise.resolve(data),
+  });
+}
+
+describe("listing_search.js", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+
+    // Reset URL to clean state
+    window.history.replaceState(null, "", "/listings");
+
+    // Set up expected DOM elements before importing the script
+    document.body.innerHTML = `
+      <input id="listing-search" type="search" />
+      <select id="listing-sort">
+        <option value="newest">Newest</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+      </select>
+      <div id="listing-status"></div>
+      <div id="listing-grid"></div>
+    `;
+
+    global.fetch = vi.fn(() =>
+      mockFetchResponse({ items: [], total: 0 })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("restores state from URL query params and fetches on initial load", async () => {
+    window.history.replaceState(null, "", "/listings?q=hoodie&sort=price_asc");
+
+    global.fetch.mockReturnValueOnce(
+      mockFetchResponse({
+        total: 2,
+        items: [
+          { id: 1, name: "Blue Hoodie", price: 45 },
+          { id: 2, name: "Mystery Box", price: null },
+        ],
+      })
+    );
+
+    await import("../static/js/listing_search.js");
+    await flushPromises();
+
+    // Inputs populated from URL
+    expect(document.querySelector("#listing-search").value).toBe("hoodie");
+    expect(document.querySelector("#listing-sort").value).toBe("price_asc");
+
+    // Fetch called with restored params
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/listings?q=hoodie&sort=price_asc",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+
+    // Cards rendered with formatted prices and fallback for null
+    const cards = document.querySelectorAll(".listing-card");
+    expect(cards).toHaveLength(2);
+    expect(cards[0].querySelector("h3").textContent).toBe("Blue Hoodie");
+    expect(cards[0].querySelector("p").textContent).toBe("$45.00");
+    expect(cards[1].querySelector("p").textContent).toBe("Price not set");
+    expect(document.querySelector("#listing-status").textContent).toBe("");
+  });
+
+  it("safely escapes HTML in listing names (prevents XSS)", async () => {
+    global.fetch.mockReturnValueOnce(
+      mockFetchResponse({
+        total: 1,
+        items: [{ id: 1, name: "<img src=x onerror=alert(1)>", price: 10 }],
+      })
+    );
+
+    await import("../static/js/listing_search.js");
+    await flushPromises();
+
+    const heading = document.querySelector(".listing-card h3");
+    expect(heading.querySelector("img")).toBeNull();
+    expect(heading.textContent).toBe("<img src=x onerror=alert(1)>");
+  });
+
+  it("debounces search input by 300ms and updates URL", async () => {
+    vi.useFakeTimers();
+    await import("../static/js/listing_search.js");
+
+    // Flush initial load
+    await vi.runAllTimersAsync();
+    global.fetch.mockClear();
+
+    const searchInput = document.querySelector("#listing-search");
+    searchInput.value = "  sneakers  ";
+    searchInput.dispatchEvent(new Event("input"));
+
+    // Before 300ms: no request fired yet
+    vi.advanceTimersByTime(299);
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    // At 300ms: triggers request with trimmed query and syncs URL
+    vi.advanceTimersByTime(1);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/listings?q=sneakers&sort=newest",
+      expect.any(Object)
+    );
+    expect(window.location.search).toBe("?q=sneakers");
+  });
+
+  it("triggers immediate fetch on sort change and omits 'newest' from URL", async () => {
+    await import("../static/js/listing_search.js");
+    await flushPromises();
+    global.fetch.mockClear();
+
+    const sortSelect = document.querySelector("#listing-sort");
+
+    // Change to price_desc -> adds ?sort=price_desc
+    sortSelect.value = "price_desc";
+    sortSelect.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe("?sort=price_desc");
+
+    // Change back to newest -> cleans query string from URL
+    sortSelect.value = "newest";
+    sortSelect.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(window.location.search).toBe("");
+  });
+
+  it("aborts in-flight requests when a newer request starts", async () => {
+    let firstSignal;
+    let rejectFirstRequest;
+
+    // 1st request hangs until manually aborted
+    global.fetch.mockImplementationOnce((_url, { signal }) => {
+      firstSignal = signal;
+      return new Promise((_resolve, reject) => {
+        rejectFirstRequest = reject;
+      });
+    });
+
+    await import("../static/js/listing_search.js");
+    expect(firstSignal.aborted).toBe(false);
+
+    // 2nd request triggered via sort change
+    global.fetch.mockReturnValueOnce(
+      mockFetchResponse({
+        total: 1,
+        items: [{ id: 9, name: "Newer Result", price: 20 }],
+      })
+    );
+
+    const sortSelect = document.querySelector("#listing-sort");
+    sortSelect.value = "price_asc";
+    sortSelect.dispatchEvent(new Event("change"));
+
+    // First request's AbortSignal should now be aborted
+    expect(firstSignal.aborted).toBe(true);
+
+    // Simulate browser rejecting the aborted fetch with AbortError
+    const abortErr = new DOMException("Aborted", "AbortError");
+    rejectFirstRequest(abortErr);
+    await flushPromises();
+
+    // Status should NOT show an error message for AbortError
+    expect(document.querySelector("#listing-status").textContent).toBe("");
+    expect(document.querySelector(".listing-card h3").textContent).toBe("Newer Result");
+  });
+
+  it("displays empty state and error messages appropriately", async () => {
+    // 1. Empty results
+    global.fetch.mockReturnValueOnce(mockFetchResponse({ items: [], total: 0 }));
+    await import("../static/js/listing_search.js");
+    await flushPromises();
+
+    expect(document.querySelector("#listing-status").textContent).toBe(
+      "No listings found."
+    );
+
+    // 2. Server HTTP 500 error
+    global.fetch.mockReturnValueOnce(mockFetchResponse({}, false));
+    document.querySelector("#listing-sort").dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(document.querySelector("#listing-status").textContent).toBe(
+      "Something went wrong. Please try again."
+    );
+  });
+});
