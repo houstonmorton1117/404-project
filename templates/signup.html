@@ -55,6 +55,82 @@
             transition: color 0.2s;
         }
         .back-link:hover { color: var(--navy-deep); }
+        /* Added by Joshua Hall on 11/14/2026 - Email verification modal */
+        .verification-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(12, 18, 35, 0.65);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .verification-overlay.active {
+            display: flex;
+        }
+
+        .verification-modal {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 35px 28px;
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+            text-align: center;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .verification-modal h2 {
+            color: #17233c;
+            margin-bottom: 10px;
+        }
+
+        .verification-modal p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .verification-digits {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 25px 0;
+        }
+
+        .verification-digits input {
+            width: 42px;
+            height: 52px;
+            min-width: 0;
+            box-sizing: border-box;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+
+        .verification-digits input:focus {
+            border-color: #3478db;
+            outline: none;
+        }
+
+        .verification-error {
+            color: #c62828;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        /* Added by Joshua Hall on 11/13/2026 - Signup error styling */
+        .signup-error {
+            color: #c62828 !important;
+            font-size: 0.85rem;
+            margin: 12px 0;
+            text-align: center;
+        }
     </style>
     <!-- Curtain-reveal page transition - added 11/14/26 -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/transition.css') }}">
@@ -80,11 +156,145 @@
                 <div class="field-group">
                     <label>Password</label>
                     <input type="password" name="password" required placeholder="••••••••">
+
+                    <!-- Added by Joshua Hall on 11/13/2026 - Signup password validation error -->
+                     {% if error %}
+                        <p class="signup-error" role="alert">{{ error }}</p>
+                    {% endif %}
                 </div>
                 <button type="submit" class="submit-btn btn-ticket">Join the Show</button>
             </form>
             <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Lobby</a>
         </div>
     </div>
+    <!-- Added by Joshua Hall on 11/14/2026 - Email verification popup -->
+    <div class="verification-overlay {% if show_verification %}active{% endif %}" id="verificationOverlay">
+        <div class="verification-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="verificationTitle">
+
+            <h2 id="verificationTitle">Verify Your Email</h2>
+            <p>Enter the 6-digit code sent to your university email.</p>
+            <form id="verificationForm" method="POST" action="{{ url_for('auth.verify_email') }}">
+                <!-- CSRF protection -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- Added by Joshua Hall on 11/14/2026 - Combined verification code -->
+                <input type="hidden" name="code" id="verificationCode">
+
+                <div class="verification-digits">
+                    <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 1" required>
+                    <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 2" required>
+                    <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 3" required>
+                    <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 4" required>
+                    <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 5" required>
+                    <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 6" required>
+                </div>
+
+                <!-- Added by Joshua Hall on 11/14/2026 - Verification error messages -->
+                <p class="verification-error"
+                id="verificationError"
+                role="alert"
+                {% if not verification_error %}hidden{% endif %}>
+                    {{ verification_error or '' }}
+                </p>
+
+                <button type="submit" class="submit-btn btn-ticket">
+                    Verify Email
+                </button>
+            </form>
+
+            <p>Didn't receive a code? <a href="#" id="resendCode">Resend code</a></p>
+        </div>
+    </div>
+    <!-- Added by Joshua Hall on 11/14/2026 - Verification code input behavior -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('verificationForm');
+        const inputs = Array.from(
+            document.querySelectorAll('.verification-digits input')
+        );
+        const hiddenCode = document.getElementById('verificationCode');
+
+        inputs.forEach((input, index) => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 1);
+
+                if (input.value && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            });
+
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Backspace' && !input.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+
+            input.addEventListener('paste', (event) => {
+                event.preventDefault();
+
+                const pastedCode = event.clipboardData
+                    .getData('text')
+                    .replace(/\D/g, '')
+                    .slice(0, 6);
+
+                pastedCode.split('').forEach((digit, position) => {
+                    inputs[position].value = digit;
+                });
+
+                inputs[Math.min(pastedCode.length, 5)].focus();
+            });
+        });
+
+        form.addEventListener('submit', (event) => {
+            const code = inputs.map(input => input.value).join('');
+
+            if (!/^\d{6}$/.test(code)) {
+                event.preventDefault();
+                return;
+            }
+
+            hiddenCode.value = code;
+        });
+        // Added by Joshua Hall on 11/14/2026 - Resend verification code
+        const resendLink = document.getElementById('resendCode');
+
+        resendLink.addEventListener('click', async (event) => {
+            event.preventDefault();
+
+            const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+
+            try {
+                const response = await fetch("{{ url_for('auth.resend_verification') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+
+                const result = await response.json();
+                const errorMessage = document.getElementById('verificationError');
+
+                errorMessage.hidden = false;
+                errorMessage.textContent = result.message;
+
+                if (result.success) {
+                    errorMessage.style.color = '#2e7d32';
+                    inputs.forEach(input => input.value = '');
+                    inputs[0].focus();
+                } else {
+                    errorMessage.style.color = '#c62828';
+                }
+            } catch (error) {
+                const errorMessage = document.getElementById('verificationError');
+                errorMessage.hidden = false;
+                errorMessage.style.color = '#c62828';
+                errorMessage.textContent = 'Unable to resend code. Please try again.';
+            }
+        });
+
+    });
+    </script>
 </body>
 </html>

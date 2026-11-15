@@ -1,8 +1,10 @@
+# Updated by Joshua Hall on 11/12/2026
+# Increased maximum failed login attempts from 3 to 5
+# and extended account lockout duration from 60 to 180 seconds.
+from datetime import datetime, timezone
 
-from datetime import datetime, timedelta, timezone
-
-MAX_ATTEMPTS = 3
-LOCKOUT_SECONDS = 60
+MAX_ATTEMPTS = 5
+LOCKOUT_SECONDS = 180
 
 
 def check_login_lockout(conn, username):
@@ -31,7 +33,7 @@ def check_login_lockout(conn, username):
 
 
 def record_failed_login(conn, username):
-    """Increment failed attempts and lock after the third failure."""
+    """Increment failed attempts and lock after the fifth failure."""
     cur = conn.cursor()
     try:
         cur.execute("""
@@ -53,15 +55,18 @@ def record_failed_login(conn, username):
                             ELSE failed_login_attempts + 1
                         END
                     ) >= %s
-                    THEN NOW() + INTERVAL '60 seconds'
+                    THEN NOW() + (%s * INTERVAL '1 second')
                     ELSE NULL
                 END
             WHERE username = %s
             RETURNING failed_login_attempts
-        """, (MAX_ATTEMPTS, username))
+        """, (MAX_ATTEMPTS, LOCKOUT_SECONDS, username))
 
         row = cur.fetchone()
         conn.commit()
+
+        # Temporary debugging - Joshua Hall 11/12/2026
+        print("DEBUG: Failed login database row found:", row is not None)
 
         if not row:
             return MAX_ATTEMPTS

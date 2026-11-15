@@ -64,6 +64,33 @@ def create_vault_tables():
             ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
         """)
 
+        # Added by Joshua Hall on 11/13/2026 - Email verification status
+        # New accounts are unverified until they confirm their email.
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS verification_code_hash TEXT;
+        """)
+
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMPTZ;
+        """)
+
+        # Added by Joshua Hall on 11/14/2026 - Limit email verification attempts
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS verification_attempts INTEGER NOT NULL DEFAULT 0;
+        """)
+
+        # Added by Joshua Hall on 11/14/2026 - Track verification email resend cooldown
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS verification_sent_at TIMESTAMPTZ;
+        """)
         # Account deactivation: admins deactivate users instead of deleting them, so their storefronts, listings and orders are kept. Existing users start active. - Jasmine Mark 11/12/26
         cur.execute("""
             ALTER TABLE users

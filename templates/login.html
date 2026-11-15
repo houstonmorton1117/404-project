@@ -54,6 +54,14 @@
             margin-top: 6px;
         }
 
+        /* Added by Joshua Hall on 11/12/2026 - Login error styling */
+        .login-error {
+            color: #c62828;
+            font-size: 0.85rem;
+            margin: 12px 0;
+            text-align: center;
+        }
+
         .footer-links {
             margin-top: 22px;
             display: flex;
@@ -123,6 +131,9 @@
                     <label>Password</label>
                     <input type="password" name="password" required placeholder="••••••••">
                 </div>
+                {% if error %}
+                    <p class="login-error" role="alert">{{ error }}</p>
+                {% endif %}
                 <button type="submit" class="submit-btn btn-ticket">Enter the Show</button>
             </form>
 

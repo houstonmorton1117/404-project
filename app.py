@@ -2,6 +2,9 @@ import sys
 import os
 from flask import Flask, render_template, redirect, url_for, session, request
 from flask_wtf.csrf import CSRFProtect #Added by rochele solmon
+# Added by Joshua Hall on 11/14/2026 - IP-based rate limiting
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))) # Updated 3/19/2026 by Ryan Grimes
 
@@ -28,6 +31,13 @@ def create_app():
 
     app.secret_key = os.environ['SECRET_KEY'] # Updated 10/26/26 by Obi Achebe
     csrf = CSRFProtect(app) #added by Rochele Solmon
+    # Added by Joshua Hall on 11/14/2026 - Initialize IP-based rate limiting
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=[],
+        storage_uri="memory://"
+    ) 
 
      # Secure session cookie settings - Rochele
     app.config.update(
@@ -145,6 +155,16 @@ def create_app():
 
     # Register Blueprints
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    # Added by Joshua Hall on 11/14/2026 - Apply IP rate limits to authentication routes
+    app.view_functions["auth.login"] = limiter.limit(
+        "5 per minute",
+        methods=["POST"]
+    )(app.view_functions["auth.login"])
+
+    app.view_functions["auth.signup"] = limiter.limit(
+        "3 per hour",
+        methods=["POST"]
+    )(app.view_functions["auth.signup"])
     app.register_blueprint(listing_bp)
     app.register_blueprint(storefront_bp)
     app.register_blueprint(storefront_pages_bp)  # Updated by Day E 3/22/26
