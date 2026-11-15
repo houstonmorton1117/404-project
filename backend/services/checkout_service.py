@@ -14,6 +14,7 @@ from models.checkout_model import (
     get_order_by_confirmation,
     get_order_items_by_order_id,
     get_orders_by_user_id,
+    get_sales_by_seller_id,
     clear_cart_for_user,
     update_listing_size_inventory,
     update_listing_quantity_inventory,
@@ -264,3 +265,13 @@ def get_order_summary_service(confirmation_number, user_id):
 def get_user_orders_service(user_id):
     """Returns all orders for the given user, newest first."""
     return get_orders_by_user_id(user_id)
+
+
+def get_seller_sales_service(seller_id):
+    """Returns the seller's sold items (newest first) plus totals for the Sales History tab."""
+    sales = get_sales_by_seller_id(seller_id)
+    return {
+        "sales": sales,
+        "total_items": sum(s["quantity"] for s in sales),
+        "total_amount": round(sum(s["amount"] for s in sales), 2),
+    }

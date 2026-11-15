@@ -171,6 +171,9 @@
         .settings-btn.danger-btn { border-color: #ff4444; color: #ff4444; }
         .settings-btn.danger-btn:hover { background: rgba(255, 68, 68, 0.15); }
     </style>
+    <!-- Curtain-reveal page transition - added 11/14/26 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/transition.css') }}">
+    <script src="{{ url_for('static', filename='js/transition.js') }}" defer></script>
 </head>
 <body>
 
@@ -218,7 +221,10 @@
 
     <div id="sales" class="tab-content">
         <h3>SALES HISTORY</h3>
-        <p class="empty-state">No items sold yet.</p>
+        <!-- Seller Sales History - added 11/14/26 -->
+        <p id="salesSummary" class="purchase-meta" style="display:none; margin-bottom:12px;"></p>
+        <p id="salesEmptyState" class="empty-state">Loading your sales...</p>
+        <div id="salesContainer" class="purchase-items"></div>
     </div>
 
     <!-- Follow a storefront - Added by Houston Morton - Iteration 4 -->
@@ -319,6 +325,7 @@
 
         if (tabName === "wishlist") loadWishlist();
         if (tabName === "purchases") loadPurchases();
+        if (tabName === "sales") loadSales();
         if (tabName === "following") loadFollowing();
         if (tabName === "notifications") loadNotifications();
     }
@@ -650,6 +657,66 @@
         } catch (error) {
             console.error("Error loading purchases:", error);
             if (emptyState) emptyState.textContent = "Unable to load orders right now.";
+        }
+    }
+
+    // Seller Sales History - added 11/14/26
+    // One row per item sold from this user's storefront: item, buyer, date and amount.
+    async function loadSales() {
+        const emptyState = document.getElementById("salesEmptyState");
+        const container = document.getElementById("salesContainer");
+        const summary = document.getElementById("salesSummary");
+        if (!emptyState || !container || !summary) return;
+        try {
+            const res = await fetch("/api/orders/sales");
+            if (res.status === 401) {
+                window.location.href = `/auth/login?next=${encodeURIComponent(window.location.pathname)}`;
+                return;
+            }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to load sales");
+            const sales = Array.isArray(data.sales) ? data.sales : [];
+
+            container.innerHTML = "";
+            if (!sales.length) {
+                summary.style.display = "none";
+                emptyState.textContent = "No items sold yet.";
+                emptyState.style.display = "block";
+                return;
+            }
+            emptyState.style.display = "none";
+
+            const itemNoun = data.total_items === 1 ? "item" : "items";
+            summary.textContent = `${data.total_items} ${itemNoun} sold · $${Number(data.total_amount || 0).toFixed(2)} total`;
+            summary.style.display = "block";
+
+            sales.forEach((sale) => {
+                const date = sale.sold_at
+                    ? new Date(sale.sold_at.replace(" ", "T")).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+                    : "N/A";
+                const details = [`Qty ${sale.quantity}`];
+                if (sale.selected_size) details.push(`Size ${sale.selected_size}`);
+                const row = document.createElement("div");
+                row.className = "purchase-row";
+                row.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="purchase-conf">${esc(sale.item_name)}</div>
+                        <span class="purchase-total">$${Number(sale.amount || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="purchase-meta" style="margin-top:4px;">
+                        Sold to ${esc(sale.buyer_name || "Unknown buyer")} &nbsp;|&nbsp; ${date}
+                    </div>
+                    <div class="purchase-meta" style="margin-top:4px;">
+                        ${esc(details.join(" · "))} &nbsp;|&nbsp; Order ${esc(sale.confirmation_number)} &nbsp;|&nbsp; ${esc(sale.order_status)}
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        } catch (error) {
+            console.error("Error loading sales:", error);
+            summary.style.display = "none";
+            emptyState.textContent = "Unable to load sales right now.";
+            emptyState.style.display = "block";
         }
     }
 

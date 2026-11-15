@@ -11,6 +11,7 @@ from services.checkout_service import (
     complete_transaction_from_session,
     get_order_summary_service,
     get_user_orders_service,
+    get_seller_sales_service,
 )
 
 checkout_bp = Blueprint("checkout", __name__)
@@ -71,3 +72,17 @@ def get_my_orders():
         return jsonify({"orders": orders}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# Seller Sales History - added 11/14/26
+@checkout_bp.route("/orders/sales", methods=["GET"])
+def get_my_sales():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not logged in"}), 401
+
+    try:
+        return jsonify(get_seller_sales_service(int(user_id))), 200
+    except Exception as e:
+        print(f"[sales] failed to load sales for user {user_id}: {e}")
+        return jsonify({"error": "Unable to load sales right now."}), 500
