@@ -12,7 +12,12 @@ class AuthService:
         hashed_pw = hash_password(password)
         try:
             cur = db_conn.cursor() #Creates a point for data to be entered into database
-            query = "INSERT INTO users (username, password, email) VALUES (%s, %s, %s)" #Enters data into SQL database. '%s' prevents SQLi by forcing the database to treat user input strictly as data, not as executable SQL code
+            # Updated by Joshua Hall on 11/14/2026
+            # New accounts must verify their email before logging in.
+            query = """
+                INSERT INTO users (username, password, email, email_verified)
+                VALUES (%s, %s, %s, FALSE)
+            """
             cur.execute(query, (username, hashed_pw, email)) #Inputs data at cursor point
             db_conn.commit() #Saves changes
             cur.close() #Closes cursor

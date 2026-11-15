@@ -1,5 +1,6 @@
 # By Ryan Grimes - Updated 3/19/2026
 # Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error
+# Updated by Joshua Hall on 11/12/2026 to fix regular and admin login messages to reflect the 5-attempt and 3-minute account lockout policy.
 from flask import Blueprint, request, session, redirect, url_for, render_template, flash, jsonify
 from services.auth_services import AuthService 
 from config.db import get_connection
@@ -9,6 +10,15 @@ from services.login_security_service import (
     check_login_lockout,
     record_failed_login,
     reset_failed_logins
+)
+
+# Added by Joshua Hall on 11/14/2026 - Email verification and resend functionality
+from services.email_verification_service import (
+    generate_verification_code,
+    send_verification_email,
+    store_verification_code,
+    verify_email_code,
+    can_resend_verification_code
 )
 
 auth_bp = Blueprint('auth', __name__)
@@ -31,16 +41,30 @@ def login():
             remaining_seconds = check_login_lockout(conn, user)
 
             if remaining_seconds > 0:
-                return (
-                    f"Too many failed login attempts. "
-                    f"Please try again in {remaining_seconds} seconds. "
-                    "<a href='/auth/login'>Back to Login</a>",
-                    429
-                )
+                return render_template(
+                    'login.html',
+                    error=f"Account is locked. Please try again in {remaining_seconds} seconds."
+                ), 429
 
             success, role = service.validate_login(user, pw, conn)
 
             if success:
+                # Added by Joshua Hall on 11/14/2026 - Prevent login before email verification
+                cur = conn.cursor()
+                try:
+                    cur.execute(
+                        "SELECT email_verified FROM users WHERE username = %s",
+                        (user,)
+                    )
+                    verification_row = cur.fetchone()
+                finally:
+                    cur.close()
+
+                if verification_row is None or not verification_row[0]:
+                    return render_template(
+                        'login.html',
+                        error="Please verify your university email before logging in."
+                    ), 403
                 # Reset failed login attempts after a successful login
                 reset_failed_logins(conn, user)
 
@@ -77,18 +101,14 @@ def login():
             remaining_attempts = record_failed_login(conn, user)
 
             if remaining_attempts == 0:
-                return (
-                    "Too many failed login attempts. "
-                    "Your account has been temporarily locked for 60 seconds. "
-                    "<a href='/auth/login'>Back to Login</a>",
-                    429
-                )
-            return (
-                f"Invalid Credentials. "
-                f"You have {remaining_attempts} attempt(s) remaining. "
-                "<a href='/auth/login'>Try again</a>",
-                401
-            )
+                return render_template(
+                    'login.html',
+                    error="Too many failed login attempts. Your account has been temporarily locked for 3 minutes."
+                ), 429
+            return render_template(
+                'login.html',
+                error=f"Invalid Credentials. You have {remaining_attempts} attempt(s) remaining."
+            ), 401
         
         finally:
             conn.close() # always release the connection after success or failure
@@ -102,19 +122,145 @@ def signup():
         pw = request.form.get('password')
         email = request.form.get('email')
 
+        # Added by Joshua Hall on 11/12/2026 - Minimum password length
+        if not pw or len(pw) < 8:
+            return render_template(
+                'signup.html',
+                error="Password must be at least 8 characters long."
+            ), 400
+
         conn = get_connection()
+        # Temporary database diagnostic - Joshua Hall 11/14/2026
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT current_database(), current_user,
+                    inet_server_addr(), inet_server_port()
+            """)
+            print("FLASK DATABASE:", cur.fetchone())
+        conn.rollback()
         if conn is None:
             return "Database connection failed. <a href='/auth/signup'>Try again</a>"
 
         success, message = service.register_user(user, pw, email, conn)
-        conn.close()
 
         if success:
-            flash("Signup Successful! Please login with your new credentials.", "success")
-            return redirect(url_for('auth.login'))
-        return f"Signup Failed: {message} <a href='/auth/signup'>Try again</a>"
+            code = generate_verification_code()
+            stored = store_verification_code(conn, email, code)
+            conn.close()
+
+            if not stored:
+                return render_template(
+                    'signup.html',
+                    error="Account created, but verification setup failed."
+                ), 500
+            # Added by Joshua Hall on 11/14/2026 - Send signup verification email
+            try:
+                send_verification_email(email, code)
+            except Exception as e:
+                print(f"Verification email error: {e}")
+                return render_template(
+                    'signup.html',
+                    error="Account created, but the verification email could not be sent."
+                ), 500
+
+            # Updated by Joshua Hall on 11/14/2026 - Show verification popup after signup
+            session['pending_verification_email'] = email
+
+            return render_template(
+                'signup.html',
+                show_verification=True
+            )
+        else:
+            conn.close()
+            # Updated by Joshua Hall on 11/14/2026 - Display signup errors inline
+            return render_template(
+                'signup.html',
+                error=message
+            ), 400
     
     return render_template('signup.html')
+
+
+# Added by Joshua Hall on 11/14/2026 - Email verification route
+@auth_bp.route('/verify-email', methods=['POST'])
+def verify_email():
+    email = session.get('pending_verification_email')
+
+    if not email:
+        flash("Verification session expired. Please start again.", "error")
+        return redirect(url_for('auth.signup'))
+
+    # The verification form will submit all six digits as one code.
+    code = request.form.get('code', '').strip()
+
+    if len(code) != 6 or not code.isdigit():
+        return render_template(
+            'signup.html',
+            show_verification=True,
+            verification_error="Please enter a valid 6-digit code."
+        ), 400
+
+    conn = get_connection()
+
+    try:
+        verified = verify_email_code(conn, email, code)
+    finally:
+        conn.close()
+
+    if verified:
+        session.pop('pending_verification_email', None)
+        flash("Email verified successfully! You can now log in.", "success")
+        return redirect(url_for('auth.login'))
+
+    return render_template(
+        'signup.html',
+        show_verification=True,
+        verification_error="Invalid or expired verification code."
+    ), 400
+
+# Added by Joshua Hall on 11/14/2026 - Resend email verification codes
+@auth_bp.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    email = session.get('pending_verification_email')
+
+    if not email:
+        return jsonify({"success": False, "message": "Verification session expired."}), 400
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({"success": False, "message": "Database unavailable."}), 503
+
+    try:
+        if not can_resend_verification_code(conn, email):
+            return jsonify({
+                "success": False,
+                "message": "Please wait 60 seconds before requesting another code."
+            }), 429
+
+        code = generate_verification_code()
+
+        # Updated by Joshua Hall on 11/14/2026 - Enforce 60-second resend cooldown
+        if not store_verification_code(conn, email, code, is_resend=True):
+            return jsonify({
+                "success": False,
+                "message": "Unable to generate a new code."
+            }), 400
+
+        send_verification_email(email, code)
+
+        return jsonify({
+            "success": True,
+            "message": "A new verification code has been sent."
+        })
+
+    except Exception:
+        return jsonify({
+            "success": False,
+            "message": "Unable to send verification email. Please try again later."
+        }), 500
+
+    finally:
+        conn.close()
 
 @auth_bp.route('/listings')
 def listings():
@@ -283,12 +429,10 @@ def admin_login():
             remaining_seconds = check_login_lockout(conn, user)
 
             if remaining_seconds > 0:
-                return (
-                    f"Too many failed login attempts. "
-                    f"Please try again in {remaining_seconds} seconds. "
-                    "<a href='/auth/admin-login'>Back to Admin Login</a>",
-                    429
-                )
+                return render_template(
+                    'admin_login.html',
+                    error=f"Account locked. Please try again in {remaining_seconds} seconds."
+                ), 429
 
             success, role = service.validate_login(user, pw, conn)
 
@@ -320,25 +464,20 @@ def admin_login():
                 remaining_attempts = record_failed_login(conn, user)
 
                 if remaining_attempts == 0:
-                    return (
-                        "Too many failed login attempts. "
-                        "Your account has been locked for 60 seconds. "
-                        "<a href='/auth/admin-login'>Back to Admin Login</a>",
-                        429
-                    )
+                    return render_template(
+                        'admin_login.html',
+                        error="Too many failed login attempts. Your account has been locked for 3 minutes."
+                    ), 429
 
-                return (
-                    f"Invalid Admin Credentials. "
-                    f"You have {remaining_attempts} attempt(s) remaining. "
-                    "<a href='/auth/admin-login'>Try again</a>",
-                    401
-                )
+                return render_template(
+                    'admin_login.html',
+                    error=f"Invalid Admin Credentials. You have {remaining_attempts} attempt(s) remaining."
+                ), 401
 
-            return (
-                "This account does not have administrator access. "
-                "<a href='/auth/admin-login'>Back to Admin Login</a>",
-                403
-            )
+            return render_template(
+                'admin_login.html',
+                error="This account does not have administrator access."
+            ), 403
 
         finally:
             conn.close()
