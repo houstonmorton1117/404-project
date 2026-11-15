@@ -29,6 +29,34 @@ def create_app():
     app.secret_key = os.environ['SECRET_KEY'] # Updated 10/26/26 by Obi Achebe
     csrf = CSRFProtect(app) #added by Rochele Solmon
 
+     # Secure session cookie settings - Rochele
+    app.config.update(
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE="Lax",
+            SESSION_COOKIE_SECURE=os.getenv(
+                "SESSION_COOKIE_SECURE", "false"
+            ).lower() == "true"
+    )
+
+     # Security response headers (Rochele 11/13/2026)
+    @app.after_request
+    def add_security_headers(response):
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://js.stripe.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' https://api.stripe.com; "
+            "frame-src https://js.stripe.com https://hooks.stripe.com; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self' https://checkout.stripe.com"
+        )
+        return response
+
     # Allow image uploads up to 25MB (4 listing photos per request).
     # Keep in sync with .platform/nginx/conf.d/upload_size.conf
     app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
@@ -37,12 +65,36 @@ def create_app():
     def request_too_large(_err):
         return {"error": "Image is too large. Total upload size must be under 25 MB."}, 413
 
+    #sign out users whose account was deactivated while they were logged in, on their next request - jasmine Mark 11/12/26
+    @app.before_request
+    def sign_out_deactivated_users():
+        user_id = session.get('user_id')
+        if not user_id or request.endpoint == 'static':
+            return None
+        try:
+            from models.admin_model import _is_user_active
+            if _is_user_active(user_id) is not False:
+                return None
+        except Exception as e:
+            # Don't take down every page if the lookup fails; the login check still blocks them.
+            print(f"[auth] Could not check account status: {e}")
+            return None
+
+        session.clear()
+        if request.path.startswith('/api/') or request.method != 'GET':
+            return {"error": "This account has been deactivated. Contact an administrator."}, 401
+        return redirect(url_for('auth.login'))
+
     # Run DB migrations on every startup so new columns are always present
+    # If the database can't be set up, stop with a clear message instead of starting an app that fails later with confusing errors. - added by jasmine mark 11/14/26
     try:
         from init_db import create_vault_tables
         create_vault_tables()
-    except Exception as _db_init_err:
-        print(f"[startup] DB migration warning: {_db_init_err}")
+    except Exception as err:
+        raise RuntimeError(
+            f"Could not set up the database: {str(err).strip()}. "
+            "Check DB_HOST, DB_NAME, DB_USER and DB_PASSWORD in .env."
+        ) from err
 
     #The Welcome Screen (Default) Ryan Grimes 3/19/2026
     @app.route('/')

@@ -30,6 +30,9 @@ It is different from the public storefront page because this version is meant fo
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/my_storefront.css') }}">
+    <!-- Curtain-reveal page transition - added 11/14/26 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/transition.css') }}">
+    <script src="{{ url_for('static', filename='js/transition.js') }}" defer></script>
 </head>
 
 <body>

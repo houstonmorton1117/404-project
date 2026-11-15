@@ -29,12 +29,24 @@ async function loadUsers() {
         addTextCell(row, user.email);
         addTextCell(row, user.role || "user");
         addTextCell(row, user.created_at || "");
+        addTextCell(row, user.is_active ? "Active" : "Deactivated");
 
+        // Deactivate/Restore replaces permanent delete - Jasmine Mark 11/11/26
         const actionCell = document.createElement("td");
         const button = document.createElement("button");
-        button.className = "delete";
-        button.textContent = "Delete";
-        button.addEventListener("click", () => deleteUser(user.id));
+        if (user.is_active) {
+            button.className = "delete";
+            button.textContent = "Deactivate";
+            button.addEventListener("click", () => {
+                if (confirm(`Deactivate ${user.username || "this user"}? They won't be able to log in until restored.`)) {
+                    setUserActive(user.id, "deactivate");
+                }
+            });
+        } else {
+            button.className = "restore";
+            button.textContent = "Restore";
+            button.addEventListener("click", () => setUserActive(user.id, "restore"));
+        }
         actionCell.appendChild(button);
         row.appendChild(actionCell);
 
@@ -43,18 +55,23 @@ async function loadUsers() {
 }
 
 /*
- * Delete a user by ID
- * Calls: DELETE /admin/users/<id>
+ * Deactivate or restore a user by ID
+ * Calls: PATCH /admin/users/<id>/deactivate  or  PATCH /admin/users/<id>/restore
  */
-async function deleteUser(userId) {
-    await fetch(`/admin/users/${encodeURIComponent(userId)}`, {
-        method: 'DELETE',
+async function setUserActive(userId, action) {
+    const response = await fetch(`/admin/users/${encodeURIComponent(userId)}/${action}`, {
+        method: 'PATCH',
         headers: {
             // CSRF protection added by Rochele Solmon
             "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
                 || document.querySelector('input[name="csrf_token"]')?.value
         }
     });
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || `Could not ${action} user.`);
+    }
 
     loadUsers();
 }

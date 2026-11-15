@@ -1,4 +1,4 @@
-# The Vault — Campus Marketplace
+# Showtime— Campus Marketplace
 
 **A cloud-based fashion marketplace for Hampton University students**
 

@@ -14,6 +14,9 @@
     <!-- Link to external CSS file for styling -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <!-- Curtain-reveal page transition - added 11/14/26 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/transition.css') }}">
+    <script src="{{ url_for('static', filename='js/transition.js') }}" defer></script>
 </head>
 <body>
 
@@ -44,6 +47,7 @@
                     <th>Email</th>
                     <th>Role</th>
                     <th>Created At</th>
+                    <th>Status</th>
                     <th>Action</th>
                 </tr>
             </thead>

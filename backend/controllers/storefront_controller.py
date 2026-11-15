@@ -3,6 +3,9 @@
 # Created by Day Ekoi - Iteration 3
 # Updated by Day Ekoi - Iteration 4 3/25/26
 # Updated by Day Ekoi - Iteration 5 - 4/20/26 - added edit storefront route, create listing route, S3 image upload endpoint, fixed session key
+#Updated by rochele solmon 11/13/2026
+
+#updated by jasmine mark 11/14/26 - Hide stores whose owner has been deactivated (admins can still see them)
 
 """
 storefront_controller.py
@@ -17,9 +20,9 @@ Functions:
 - call service functions
 - return JSON responses
 """
-
+from PIL import Image
 from flask import Blueprint, request, jsonify, render_template, session
-
+from utils.auth_utils import get_current_user
 from services.storefront_service import (
     create_storefront_service,
     get_my_storefront_service,
@@ -35,25 +38,6 @@ storefront_bp = Blueprint("storefront_bp", __name__, url_prefix="/api/storefront
 
 # Page blueprint
 storefront_pages_bp = Blueprint("storefront_pages_bp", __name__)
-
-
-def get_current_user():
-    """
-    Reads the authenticated user from the server-side session (set at login
-    in auth_controller.py), not from client-supplied headers. A previous
-    version trusted an X-User-Id / X-User-Role header pair directly, which
-    let any request impersonate any user (including admin) just by setting
-    those headers -- the ownership checks in storefront_service.py were
-    real, but the identity they checked against was attacker-controlled.
-    """
-    user_id = session.get("user_id")
-    role = session.get("role", "user")
-
-    if not user_id:
-        return None
-
-    return {"id": int(user_id), "role": role}
-
 
 #_________________________________________________________
 # Page Routing
@@ -139,6 +123,9 @@ def get_storefront_by_id_route(storefront_id):
         is_owner = current_user is not None and storefront["owner_id"] == current_user["id"]
         is_admin = current_user is not None and current_user.get("role") == "admin"
         if storefront.get("is_active") is False and not is_owner and not is_admin:
+            return jsonify({"error": "Storefront not found."}), 404
+        # Hide stores whose owner has been deactivated (admins can still see them)
+        if storefront.get("owner_is_active") is False and not is_admin:
             return jsonify({"error": "Storefront not found."}), 404
         return jsonify(storefront), 200
     except Exception as e:
@@ -267,22 +254,64 @@ def edit_listing_page(listing_id):
         return redirect(url_for("auth.login"))
     return render_template("edit_listing.html", listing_id=listing_id)
 
-# Added by Day E 4/16/26 - handles image uploads to S3 for storefront creation
+# Reviewed by Rochele - secure local and S3 image uploads
 @storefront_bp.post("/upload-image")
 def upload_storefront_image():
     from utils.s3 import upload_image_to_s3
 
+    # Require login
+    current_user = get_current_user()
+    if current_user is None:
+        return jsonify({"error": "Login required"}), 401
+
+    # Check that a file was selected
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
+
+    if not file or not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    # Only allow approved upload folders
+    allowed_folders = {"storefronts", "listings"}
     folder = request.form.get("folder", "storefronts")
 
-    if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-        return jsonify({"error": "Invalid file type"}), 400
+    if folder not in allowed_folders:
+        return jsonify({"error": "Invalid upload folder"}), 400
 
+    # Verify actual image contents
+    allowed_formats = {
+        "PNG": {"png"},
+        "JPEG": {"jpg", "jpeg"},
+        "GIF": {"gif"},
+        "WEBP": {"webp"}
+    }
+
+    try:
+        extension = file.filename.rsplit(".", 1)[-1].lower()
+
+        file.seek(0)
+        image = Image.open(file.stream)
+        actual_format = image.format
+        image.verify()
+
+        if actual_format not in allowed_formats:
+            return jsonify({"error": "Invalid image content"}), 400
+
+        if extension not in allowed_formats[actual_format]:
+            return jsonify({"error": "File extension does not match image content"}), 400
+
+        file.seek(0)
+
+    except Exception:
+        return jsonify({"error": "Invalid or corrupted image"}), 400
+
+    # Use existing S3/local fallback functionality
     url = upload_image_to_s3(file, folder=folder)
+
     if not url:
         return jsonify({"error": "Upload failed"}), 500
 
     return jsonify({"url": url}), 200
+
