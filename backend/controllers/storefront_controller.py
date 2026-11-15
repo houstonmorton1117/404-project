@@ -4,6 +4,9 @@
 # Updated by Day Ekoi - Iteration 4 3/25/26
 # Updated by Day Ekoi - Iteration 5 - 4/20/26 - added edit storefront route, create listing route, S3 image upload endpoint, fixed session key
 #Updated by rochele solmon 11/13/2026
+
+#updated by jasmine mark 11/14/26 - Hide stores whose owner has been deactivated (admins can still see them)
+
 """
 storefront_controller.py
 
@@ -120,6 +123,9 @@ def get_storefront_by_id_route(storefront_id):
         is_owner = current_user is not None and storefront["owner_id"] == current_user["id"]
         is_admin = current_user is not None and current_user.get("role") == "admin"
         if storefront.get("is_active") is False and not is_owner and not is_admin:
+            return jsonify({"error": "Storefront not found."}), 404
+        # Hide stores whose owner has been deactivated (admins can still see them)
+        if storefront.get("owner_is_active") is False and not is_admin:
             return jsonify({"error": "Storefront not found."}), 404
         return jsonify(storefront), 200
     except Exception as e:

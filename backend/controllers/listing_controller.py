@@ -42,6 +42,18 @@ from services.listing_service import (
     delete_listing_size_service
 )
 from services.storefront_service import get_my_storefront_service
+from models.storefront_model import get_storefront_by_id
+
+
+def _owner_hidden(storefront_id):
+    """True when the store's owner is deactivated and the viewer isn't an admin."""
+    storefront = get_storefront_by_id(storefront_id)
+    if storefront is None:
+        return True
+    current_user = get_current_user()
+    is_admin = current_user is not None and current_user.get("role") == "admin"
+    return storefront.get("owner_is_active") is False and not is_admin
+
 
 listing_bp = Blueprint("listing_bp", __name__, url_prefix="/api")
 
@@ -227,6 +239,8 @@ def create_listing_route(storefront_id):
 @listing_bp.get("/storefronts/<int:storefront_id>/listings")
 def get_storefront_listings_route(storefront_id):
     try:
+        if _owner_hidden(storefront_id):
+            return jsonify({"error": "Storefront not found."}), 404
         listings = get_listings_for_storefront_service(storefront_id)
         return jsonify(listings), 200
     except Exception as e:
@@ -268,6 +282,9 @@ def get_my_listings_route():
 def get_listing_route(listing_id):
     try:
         listing = get_listing_by_id_service(listing_id)
+        # owner deactivated: treat the listing as not found - added by jasmine mark 11/14/26
+        if _owner_hidden(listing["storefront_id"]):
+            return jsonify({"error": "Listing not found."}), 404
         return jsonify(listing), 200
     except Exception as e:
         msg = str(e).lower()
