@@ -28,7 +28,7 @@ def _connection(conn=None):
 
 def create_order(user_id, confirmation_number, buyer_first_name, buyer_last_name,
                  buyer_email, buyer_contact, buyer_meeting_location, total_amount,
-                 card_last4=None, transaction_ref=None, payment_status='PAID', payment_method='CARD',
+                 card_last4=None, transaction_ref=None, payment_status='AUTHORIZED', payment_method='CARD',
                  conn=None):
     with _connection(conn) as conn, conn.cursor() as cur:
         cur.execute("""
@@ -171,6 +171,49 @@ def get_orders_by_user_id(user_id):
     ]
 
 
+# Seller Sales History - added 11/14/26
+def get_sales_by_seller_id(seller_id):
+    """
+    Returns every item sold from the seller's storefront, newest first.
+    One row per order item, so an order that mixes items from several stores
+    only shows this seller their own items, and the amount is just their share.
+    Buyer name is the one the buyer entered at checkout.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT oi.id, o.confirmation_number, o.created_at, o.order_status,
+               o.buyer_first_name, o.buyer_last_name,
+               oi.listing_id, oi.item_name, oi.selected_size,
+               oi.quantity, oi.price_at_purchase
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        JOIN listings l ON l.id = oi.listing_id
+        JOIN storefronts s ON s.id = l.storefront_id
+        WHERE s.owner_id = %s
+        ORDER BY o.created_at DESC, oi.id ASC;
+    """, (seller_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [
+        {
+            "order_item_id": r[0],
+            "confirmation_number": r[1],
+            "sold_at": str(r[2]),
+            "order_status": r[3],
+            "buyer_name": f"{r[4]} {r[5]}".strip(),
+            "listing_id": r[6],
+            "item_name": r[7],
+            "selected_size": r[8],
+            "quantity": r[9],
+            "unit_price": float(r[10]),
+            "amount": round(float(r[10]) * r[9], 2),
+        }
+        for r in rows
+    ]
+
+
 def remove_purchased_from_wishlist(user_id, listing_ids):
     """
     Removes wishlist entries for listings the user just purchased.
@@ -225,6 +268,19 @@ def check_listing_availability(listing_id, quantity_requested, size=None, conn=N
         title, price, status, qty_on_hand, is_made_to_order = row
         if status not in ("ACTIVE", "SOLD_OUT"):
             raise OutOfStockError(f'"{title}" is no longer available.')
+
+        # Items from a deactivated seller can't be bought or added to a bag - updated by Jasmine Mark 11/14/26
+        cur.execute("""
+            SELECT u.is_active
+            FROM listings l
+            JOIN storefronts s ON s.id = l.storefront_id
+            JOIN users u ON u.id = s.owner_id
+            WHERE l.id = %s
+        """, (listing_id,))
+        owner = cur.fetchone()
+        if not owner or not owner[0]:
+            raise OutOfStockError(f'"{title}" is no longer available.')
+        
         if not is_made_to_order:
             if status == "SOLD_OUT" or (qty_on_hand is not None and int(qty_on_hand) <= 0):
                 raise OutOfStockError(f'"{title}" is sold out.')
@@ -316,3 +372,59 @@ def update_listing_quantity_inventory(listing_id, purchased_qty, conn=None):
                 f"Insufficient stock for listing {listing_id}: "
                 f"requested {purchased_qty}, available {available}."
             )
+
+
+# ________________________________________________________
+# Payment status helpers - added 11/14/26 for the payment token system.
+# orders.transaction_ref holds the Stripe PaymentIntent id ("pi_...") for each order.
+# ________________________________________________________
+
+def update_order_payment_status(order_id, payment_status, conn=None):
+    """Sets one order's payment_status (AUTHORIZED, PAID, FAILED or REFUNDED)."""
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE orders SET payment_status = %s WHERE id = %s;",
+            (payment_status, order_id),
+        )
+
+
+def get_order_payment_by_ref(transaction_ref, conn=None, for_update=False):
+    """Finds the order paid with a Stripe PaymentIntent. Returns
+    {"id", "user_id", "confirmation_number", "total_amount", "payment_status", "transaction_ref"}
+    or None. With for_update=True the order row stays locked until the caller's transaction ends."""
+    lock = " FOR UPDATE" if for_update else ""
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, user_id, confirmation_number, total_amount, payment_status, transaction_ref "
+            "FROM orders WHERE transaction_ref = %s" + lock + ";",
+            (transaction_ref,),
+        )
+        row = cur.fetchone()
+    return _payment_row(row)
+
+
+def get_order_payment_by_confirmation(confirmation_number, conn=None, for_update=False):
+    """Same as get_order_payment_by_ref, but looks the order up by its confirmation number.
+    Ignores case and surrounding spaces, since buyers type this number by hand on the returns form."""
+    lock = " FOR UPDATE" if for_update else ""
+    with _connection(conn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, user_id, confirmation_number, total_amount, payment_status, transaction_ref "
+            "FROM orders WHERE UPPER(confirmation_number) = UPPER(TRIM(%s))" + lock + ";",
+            (confirmation_number or "",),
+        )
+        row = cur.fetchone()
+    return _payment_row(row)
+
+
+def _payment_row(row):
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "user_id": row[1],
+        "confirmation_number": row[2],
+        "total_amount": float(row[3]),
+        "payment_status": row[4],
+        "transaction_ref": row[5],
+    }

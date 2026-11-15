@@ -1,8 +1,9 @@
 # By Ryan Grimes - Updated 3/19/2026
 # Updated by Jasmine Mark on 10/26/26 to fix redirect log in flow error
 # Updated by Joshua Hall on 11/12/2026 to fix regular and admin login messages to reflect the 5-attempt and 3-minute account lockout policy.
+# updated by jasmine mark 11/13/26 - added deactivate my account function. admins cannot deactivate their own account
 from flask import Blueprint, request, session, redirect, url_for, render_template, flash, jsonify
-from services.auth_services import AuthService 
+from services.auth_services import AuthService, ACCOUNT_DEACTIVATED
 from config.db import get_connection
 from models.checkout_model import check_listing_availability, OutOfStockError
 
@@ -47,6 +48,11 @@ def login():
                 ), 429
 
             success, role = service.validate_login(user, pw, conn)
+
+            # Deactivated account: not counted as a failed attempt - jasmine Mark 11/12/26
+            if role == ACCOUNT_DEACTIVATED:
+                return ("This account has been deactivated. Contact an administrator. "
+                        "<a href='/auth/login'>Back to Login</a>", 403)
 
             if success:
                 # Added by Joshua Hall on 11/14/2026 - Prevent login before email verification
@@ -436,6 +442,11 @@ def admin_login():
 
             success, role = service.validate_login(user, pw, conn)
 
+            # Deactivated account: not counted as a failed attempt - Jasmine Mark 11/12/26
+            if role == ACCOUNT_DEACTIVATED:
+                return ("This account has been deactivated. Contact an administrator. "
+                        "<a href='/auth/admin-login'>Back to Admin Login</a>", 403)
+
 
             # Edited by rochele solmon: verify that the authenticated account
             # has an admin role before granting admin access.
@@ -483,3 +494,59 @@ def admin_login():
             conn.close()
 
     return render_template('admin_login.html')
+
+
+# Account Settings (Settings tab on the account page) - added by Jasmine Mark 11/12/26
+# he user is always read from the session, never from the form.
+
+def _settings_request(action):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Please login to change your account settings."}), 401
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed. Please try again."}), 503
+    try:
+        success, message = action(user_id, conn)
+    finally:
+        conn.close()
+
+    if success:
+        return jsonify({"message": message}), 200
+    return jsonify({"error": message}), 400
+
+
+@auth_bp.route('/account/email', methods=['POST'])
+def update_account_email():
+    return _settings_request(lambda user_id, conn: service.update_email(
+        user_id, request.form.get('email'), conn))
+
+
+@auth_bp.route('/account/password', methods=['POST'])
+def change_account_password():
+    return _settings_request(lambda user_id, conn: service.change_password(
+        user_id,
+        request.form.get('current_password'),
+        request.form.get('new_password'),
+        request.form.get('confirm_password'),
+        conn))
+
+
+# Deactivate my account (Settings tab)- added by Jasmine Mark 11/13/26
+# admins can't deactivate their own account, so the site can't be left without an admin.
+@auth_bp.route('/account/deactivate', methods=['POST'])
+def deactivate_own_account_route():
+    if (session.get('role') or '').lower() == 'admin':
+        return jsonify({"error": "Administrators can't deactivate their own account."}), 400
+
+    response = _settings_request(lambda user_id, conn: service.deactivate_own_account(
+        user_id, request.form.get('password'), conn))
+    if response[1] != 200:
+        return response
+
+    # Lg the user out; flash after clearing, since flashed messages live in the session
+    session.clear()
+    flash("Your account has been deactivated.", "info")
+    return jsonify({"message": "Your account has been deactivated.",
+                    "redirect": url_for('auth.login')}), 200

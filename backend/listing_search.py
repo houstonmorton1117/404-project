@@ -11,9 +11,10 @@ listing_search = Blueprint("listing_search", __name__)
 # Whitelist: user input only selects a key, it never goes into SQL directly.
 # id is the tie-breaker so paging stays stable when prices/dates match.
 SORTS = {
-    "newest": "created_at DESC, id DESC",
-    "price_asc": "price ASC NULLS LAST, id ASC",
-    "price_desc": "price DESC NULLS LAST, id DESC",
+    # Prefixed with l. because the query now joins storefronts and users - updated by Jasmine Mark 11/14/26
+    "newest": "l.created_at DESC, l.id DESC",
+    "price_asc": "l.price ASC NULLS LAST, l.id ASC",
+    "price_desc": "l.price DESC NULLS LAST, l.id DESC",
 }
 
 
@@ -37,20 +38,23 @@ def search_listings():
     offset = (page - 1) * limit
 
     params = []
-    where = ""
+    # Only listed items from stores whose owner is active
+    conditions = ["l.status IN ('ACTIVE', 'SOLD_OUT')", "u.is_active = TRUE"]
     if q:
-        
         escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        where = "WHERE name ILIKE %s"
+        conditions.append("l.title ILIKE %s") #bug fix: column is title, not name - updated by Jasmine Mark 11/14/26
         params.append(f"%{escaped}%")
+    where = "WHERE " + " AND ".join(conditions)
 
     params += [limit, offset]
 
     # Safe to use an f-string here: `where` and the ORDER BY come from
     # fixed strings above, and all user values are passed as parameters.
     sql = f"""
-        SELECT id, name, price, created_at, COUNT(*) OVER() AS total
-        FROM listings
+        SELECT l.id, l.title AS name, l.price, l.created_at, COUNT(*) OVER() AS total
+        FROM listings l
+        JOIN storefronts s ON s.id = l.storefront_id
+        JOIN users u ON u.id = s.owner_id
         {where}
         ORDER BY {SORTS[sort_key]}
         LIMIT %s OFFSET %s

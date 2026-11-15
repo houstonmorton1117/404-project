@@ -9,6 +9,9 @@
     - Redirects to order confirmation on success
     Updated 10/27/26 - card details are collected by a Stripe-hosted field and turned
     into a payment token (pm_...) in the browser; only the token is sent to our server
+    Updated 11/14/26 - 3-D Secure: if the server answers requires_action, Stripe.js shows the
+    bank's verification pop-up (stripe.handleNextAction), then the order is completed by sending
+    the verified payment intent id (pi_...) back to the server
 */
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -105,6 +108,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (submitBtn) submitBtn.disabled = true;
     }
 
+    // Sends the buyer details plus either the new card token (payment_method_id) or, after
+    // bank verification, the verified payment (payment_intent_id). Throws on any error response.
+    async function submitCheckout(payload) {
+        const res = await fetch("/api/checkout/complete", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                // CSRF protection added by Rochele Solmon
+                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
+                    || document.querySelector('input[name="csrf_token"]')?.value
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || "Transaction failed.");
+        }
+        return data;
+    }
+
     // Handle form submission
     const form = document.getElementById("checkoutForm");
     if (!form) return;
@@ -153,29 +177,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                 throw new Error(error.message || "Please check your card details.");
             }
 
-            const res = await fetch("/api/checkout/complete", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    // CSRF protection added by Rochele Solmon
-                    "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content
-                        || document.querySelector('input[name="csrf_token"]')?.value
-                },
-                body: JSON.stringify({
-                    first_name: firstName,
-                    last_name: lastName,
-                    email,
-                    contact,
-                    meeting_location: meetingLocation,
-                    cardholder_name: cardholderName,
-                    payment_method_id: paymentMethod.id,
-                }),
-            });
+            const buyer = {
+                first_name: firstName,
+                last_name: lastName,
+                email,
+                contact,
+                meeting_location: meetingLocation,
+                cardholder_name: cardholderName,
+            };
 
-            const data = await res.json();
+            let data = await submitCheckout({ ...buyer, payment_method_id: paymentMethod.id });
 
-            if (!res.ok) {
-                throw new Error(data.error || "Transaction failed.");
+            // 3-D Secure: the bank wants the buyer to verify. Stripe.js shows the bank's pop-up;
+            // the card stays on hold (not charged) until the order is saved on the server.
+            if (data.requires_action) {
+                if (submitBtn) submitBtn.textContent = "Verifying with your bank...";
+                const { error: verifyError } = await stripe.handleNextAction({
+                    clientSecret: data.client_secret,
+                });
+                if (verifyError) {
+                    throw new Error(verifyError.message
+                        || "Your bank couldn't verify this card. Please try again or use a different card.");
+                }
+                if (submitBtn) submitBtn.textContent = "Processing...";
+                data = await submitCheckout({ ...buyer, payment_intent_id: data.payment_intent_id });
             }
 
             window.location.href = `/order-confirmation?conf=${encodeURIComponent(data.confirmation_number)}`;

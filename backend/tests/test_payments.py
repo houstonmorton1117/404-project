@@ -1,5 +1,6 @@
 # backend/tests/test_payments.py
 # Tests for Stripe tokenized payments. Rewritten 10/27/26 (replaces the simulated-card tests).
+# Updated 11/14/26 - 3-D Secure verification and AUTHORIZED -> PAID payment statuses.
 #
 # None of these need a database or network: Stripe is replaced by the fake in conftest.py, and the
 # checkout tests below swap the database functions for stand-ins.
@@ -18,7 +19,7 @@ for path in (PROJECT_ROOT, BACKEND_ROOT):
 
 import utils.payments as payments
 import services.checkout_service as checkout_service
-from utils.payments import PaymentError
+from utils.payments import PaymentActionRequired, PaymentError
 from services.checkout_service import CheckoutError
 
 KEY = "checkout-1-pm_card_visa-50.00"
@@ -51,10 +52,15 @@ def test_declined_card_gives_the_buyer_stripes_message(fake_stripe):
         payments.authorize_payment("pm_card_chargeDeclined", 50, "Test Buyer", KEY)
 
 
-def test_card_needing_bank_verification_is_released_not_charged(fake_stripe):
-    with pytest.raises(PaymentError, match="extra verification"):
+def test_card_needing_bank_verification_asks_the_browser_to_verify(fake_stripe):
+    # Before 11/14/26 these cards were refused. Now the payment is kept (not cancelled) and the
+    # browser gets the client secret it needs to show the bank's 3-D Secure pop-up.
+    with pytest.raises(PaymentActionRequired) as raised:
         payments.authorize_payment("pm_card_threeDSecure2Required", 50, "Test Buyer", KEY)
-    assert fake_stripe.actions() == ["create", "cancel"]
+    intent = fake_stripe.intents[raised.value.intent_id]
+    assert raised.value.client_secret == intent.client_secret
+    assert fake_stripe.actions() == ["create"]          # no cancel: the hold is still wanted
+    assert fake_stripe.calls[0][1]["use_stripe_sdk"] is True   # lets Stripe.js run the pop-up
 
 
 @pytest.mark.parametrize("bad_token", [None, "", "4242424242424242", "pm_", "pm_abc; DROP TABLE"])
@@ -130,6 +136,9 @@ def fake_db(monkeypatch, fake_stripe):
     monkeypatch.setattr(checkout_service, "update_listing_size_inventory", db.update_size)
     monkeypatch.setattr(checkout_service, "clear_cart_for_user", db.clear_cart)
     monkeypatch.setattr(checkout_service, "remove_purchased_from_wishlist", db.wishlist)
+    monkeypatch.setattr(checkout_service, "update_order_payment_status", db.update_payment_status)
+    db.get_order_payment_by_ref.return_value = None      # the payment hasn't paid for any order yet
+    monkeypatch.setattr(checkout_service, "get_order_payment_by_ref", db.get_order_payment_by_ref)
     return db
 
 
@@ -141,7 +150,11 @@ def test_checkout_charges_the_server_price_then_commits(fake_stripe, fake_db):
     order_kwargs = fake_db.create_order.call_args.kwargs
     assert order_kwargs["transaction_ref"] == result["payment"]["transaction_ref"]
     assert order_kwargs["card_last4"] == "4242"
+    # Saved as AUTHORIZED (card on hold), then marked PAID once captured, before the commit.
+    assert order_kwargs["payment_status"] == "AUTHORIZED"
+    fake_db.update_payment_status.assert_called_once_with(1, "PAID", conn=fake_db.conn)
     assert result["payment"]["status"] == "PAID"
+    assert result["order"]["payment_status"] == "PAID"
 
 
 def test_database_failure_releases_the_hold_and_never_charges(fake_stripe, fake_db):
@@ -186,6 +199,107 @@ def test_raw_card_number_is_refused_before_anything_happens(fake_stripe, fake_db
     assert fake_stripe.calls == []
 
 
+# ---------------------------------------------------------------- 3-D Secure checkout (no database)
+
+THREE_DS_BUYER = {**BUYER, "payment_method_id": "pm_card_threeDSecure2Required"}
+
+
+def _start_3ds_checkout(fake_stripe, user_id=1):
+    """First checkout attempt with a card whose bank wants verification. Returns the intent id."""
+    with pytest.raises(PaymentActionRequired) as raised:
+        checkout_service.complete_transaction_from_session(user_id, CART, THREE_DS_BUYER)
+    return raised.value.intent_id
+
+
+def _finish_details(intent_id):
+    details = {k: v for k, v in BUYER.items() if k != "payment_method_id"}
+    return {**details, "payment_intent_id": intent_id}
+
+
+def test_3ds_checkout_saves_nothing_until_the_bank_verifies(fake_stripe, fake_db):
+    _start_3ds_checkout(fake_stripe)
+    # Rolled back so no listing rows stay locked while the buyer verifies; the hold isn't cancelled.
+    assert fake_stripe.actions() == ["create", "rollback"]
+    fake_db.create_order.assert_not_called()
+    fake_db.clear_cart.assert_not_called()
+
+
+def test_3ds_checkout_completes_after_the_bank_verifies(fake_stripe, fake_db):
+    intent_id = _start_3ds_checkout(fake_stripe)
+    fake_stripe.verify_3ds(intent_id)
+
+    result = checkout_service.complete_transaction_from_session(1, CART, _finish_details(intent_id))
+
+    assert fake_stripe.actions() == ["create", "rollback", "retrieve", "capture", "commit"]
+    order_kwargs = fake_db.create_order.call_args.kwargs
+    assert order_kwargs["transaction_ref"] == intent_id
+    assert order_kwargs["payment_status"] == "AUTHORIZED"
+    fake_db.update_payment_status.assert_called_once_with(1, "PAID", conn=fake_db.conn)
+    assert result["payment"]["status"] == "PAID"
+
+
+def test_3ds_payment_the_server_must_confirm_again_is_confirmed(fake_stripe, fake_db):
+    intent_id = _start_3ds_checkout(fake_stripe)
+    fake_stripe.verify_3ds(intent_id, server_confirms=True)
+
+    checkout_service.complete_transaction_from_session(1, CART, _finish_details(intent_id))
+
+    assert fake_stripe.actions() == ["create", "rollback", "retrieve", "confirm", "capture", "commit"]
+
+
+def test_failed_bank_verification_gives_a_clear_message_and_saves_nothing(fake_stripe, fake_db):
+    intent_id = _start_3ds_checkout(fake_stripe)
+    fake_stripe.verify_3ds(intent_id, passed=False)
+
+    with pytest.raises(CheckoutError, match="couldn't verify"):
+        checkout_service.complete_transaction_from_session(1, CART, _finish_details(intent_id))
+    fake_db.create_order.assert_not_called()
+    assert "capture" not in fake_stripe.actions()
+
+
+def test_someone_elses_verified_payment_is_refused_and_left_alone(fake_stripe, fake_db):
+    intent_id = _start_3ds_checkout(fake_stripe, user_id=1)
+    fake_stripe.verify_3ds(intent_id)
+
+    with pytest.raises(CheckoutError):
+        checkout_service.complete_transaction_from_session(2, CART, _finish_details(intent_id))
+    fake_db.create_order.assert_not_called()
+    assert "capture" not in fake_stripe.actions()
+    assert "cancel" not in fake_stripe.actions()      # it's user 1's payment; don't touch it
+
+
+def test_cart_total_changing_during_verification_releases_the_hold(fake_stripe, fake_db, monkeypatch):
+    intent_id = _start_3ds_checkout(fake_stripe)
+    fake_stripe.verify_3ds(intent_id)
+    # The seller changed the price while the buyer was in the bank's pop-up.
+    monkeypatch.setattr(checkout_service, "check_listing_availability",
+                        lambda item_id, qty, size, conn=None: ("Hoodie", 30.00, False))
+
+    with pytest.raises(CheckoutError, match="cart changed"):
+        checkout_service.complete_transaction_from_session(1, CART, _finish_details(intent_id))
+    assert "cancel" in fake_stripe.actions()
+    assert "capture" not in fake_stripe.actions()
+    fake_db.create_order.assert_not_called()
+
+
+def test_payment_that_already_paid_for_an_order_cant_be_reused(fake_stripe, fake_db):
+    intent_id = _start_3ds_checkout(fake_stripe)
+    fake_stripe.verify_3ds(intent_id)
+    fake_db.get_order_payment_by_ref.return_value = {"id": 99, "payment_status": "PAID"}
+
+    with pytest.raises(CheckoutError, match="already been used"):
+        checkout_service.complete_transaction_from_session(1, CART, _finish_details(intent_id))
+    fake_db.create_order.assert_not_called()
+    assert "cancel" not in fake_stripe.actions()      # that order's payment must not be released
+
+
+@pytest.mark.parametrize("bad_id", ["pm_card_visa", "pi_", "pi_abc; DROP TABLE", "x" * 20])
+def test_anything_but_a_payment_intent_id_is_rejected(fake_stripe, fake_db, bad_id):
+    with pytest.raises(CheckoutError):
+        checkout_service.complete_transaction_from_session(1, CART, _finish_details(bad_id))
+    assert "retrieve" not in fake_stripe.actions()
+
+
 # ---------------------------------------------------------------- checkout page and API
 
 @pytest.fixture
@@ -216,3 +330,24 @@ def test_checkout_api_rejects_raw_card_data(client):
     response = client.post("/api/checkout/complete", json={**BUYER, "card_number": "4242424242424242"})
     assert response.status_code == 400
     assert "card details can't be sent" in response.get_json()["error"]
+
+
+def test_checkout_api_runs_the_3ds_step_then_completes(client, fake_stripe, fake_db):
+    first = client.post("/api/checkout/complete", json=THREE_DS_BUYER)
+    assert first.status_code == 200
+    body = first.get_json()
+    assert body["requires_action"] is True
+    assert body["client_secret"].startswith(body["payment_intent_id"])
+    assert "confirmation_number" not in body
+    with client.session_transaction() as sess:
+        assert sess["cart"] == CART                   # nothing bought yet, so the cart is kept
+
+    fake_stripe.verify_3ds(body["payment_intent_id"])   # the buyer passes the bank's pop-up
+    second = client.post("/api/checkout/complete", json=_finish_details(body["payment_intent_id"]))
+    assert second.status_code == 200
+    done = second.get_json()
+    assert done["success"] is True
+    assert done["payment"]["status"] == "PAID"
+    assert done["payment"]["transaction_ref"] == body["payment_intent_id"]
+    with client.session_transaction() as sess:
+        assert sess["cart"] == []

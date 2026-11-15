@@ -14,17 +14,24 @@ from models.checkout_model import (
     get_order_by_confirmation,
     get_order_items_by_order_id,
     get_orders_by_user_id,
+    get_sales_by_seller_id,
     clear_cart_for_user,
     update_listing_size_inventory,
     update_listing_quantity_inventory,
     remove_purchased_from_wishlist,
     check_listing_availability,
+    get_order_payment_by_ref,
+    update_order_payment_status,
 )
 from utils.payments import (
+    AUTHORIZED,
+    PAID,
+    PaymentActionRequired,
     PaymentError,
     authorize_payment,
     cancel_payment,
     capture_payment,
+    finish_verified_payment,
     refund_payment,
 )
 from models.listing_model import get_listing_by_id
@@ -79,6 +86,11 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
     # The card is charged (captured) only after every database step has succeeded, right before the
     # commit. If anything fails first, the hold is released; if the commit itself fails after the
     # charge, the charge is refunded. Either way the buyer is never charged without an order.
+    #
+    # If the bank wants 3-D Secure verification, _complete_transaction raises PaymentActionRequired
+    # before writing anything. The transaction is rolled back (so no rows stay locked while the buyer
+    # verifies), the payment is kept, and the error goes up to the browser, which shows the bank's
+    # pop-up and then calls checkout again with the payment intent id.
     conn = get_connection()
     payment = {}  # _complete_transaction fills this in once Stripe has placed a hold
     captured = False
@@ -89,6 +101,10 @@ def complete_transaction_from_session(user_id, session_cart, buyer_details):
         except PaymentError as e:
             raise CheckoutError(str(e))
         captured = True
+        # The order was written as AUTHORIZED; it becomes PAID in the same transaction as the capture.
+        update_order_payment_status(result["order"]["id"], PAID, conn=conn)
+        result["order"]["payment_status"] = PAID
+        result["payment"]["status"] = PAID
         conn.commit()
     except Exception:
         if payment.get("intent_id"):
@@ -176,19 +192,30 @@ def _complete_transaction(conn, user_id, session_cart, buyer_details, requested,
 
     confirmation_number = _generate_confirmation_number()
 
-    # Stripe places a hold for the server-computed total using the token the browser got from
-    # Stripe.js. A declined card stops checkout here, before any order record is written.
-    payment_method_id = buyer_details.get("payment_method_id")
+    payment_intent_id = buyer_details.get("payment_intent_id")
     try:
-        authorization = authorize_payment(
-            payment_method_id=payment_method_id,
-            amount=total_amount,
-            cardholder_name=buyer_details.get("cardholder_name"),
-            # A repeated submit of the same token for the same order reuses Stripe's first result
-            # instead of placing a second hold.
-            idempotency_key=f"checkout-{user_id}-{payment_method_id}-{total_amount:.2f}",
-            metadata={"user_id": str(user_id), "confirmation_number": confirmation_number},
-        )
+        if payment_intent_id:
+            # Second step after 3-D Secure: the browser sends back the payment it just verified.
+            # A payment that already paid for an order can't be used again. This check happens
+            # before `payment` is filled in, so the failure path won't release that order's money.
+            if get_order_payment_by_ref(payment_intent_id, conn=conn):
+                raise CheckoutError("This payment has already been used for an order.")
+            # finish_verified_payment re-checks the owner and the server-computed total with Stripe.
+            authorization = finish_verified_payment(payment_intent_id, total_amount, user_id)
+        else:
+            # Stripe places a hold for the server-computed total using the token the browser got
+            # from Stripe.js. A declined card stops checkout here, before any order record is written.
+            # If the bank wants 3-D Secure, PaymentActionRequired goes up to the browser instead.
+            payment_method_id = buyer_details.get("payment_method_id")
+            authorization = authorize_payment(
+                payment_method_id=payment_method_id,
+                amount=total_amount,
+                cardholder_name=buyer_details.get("cardholder_name"),
+                # A repeated submit of the same token for the same order reuses Stripe's first result
+                # instead of placing a second hold.
+                idempotency_key=f"checkout-{user_id}-{payment_method_id}-{total_amount:.2f}",
+                metadata={"user_id": str(user_id), "confirmation_number": confirmation_number},
+            )
     except PaymentError as e:
         raise CheckoutError(str(e))
     payment.update(authorization)
@@ -204,7 +231,9 @@ def _complete_transaction(conn, user_id, session_cart, buyer_details, requested,
         total_amount=total_amount,
         card_last4=authorization["card_last4"],
         transaction_ref=authorization["intent_id"],
-        payment_status="PAID",
+        # The card has a hold, not a charge, at this point. The caller marks the order PAID
+        # right after capturing the payment, in the same transaction.
+        payment_status=AUTHORIZED,
         conn=conn,
     )
 
@@ -243,7 +272,7 @@ def _complete_transaction(conn, user_id, session_cart, buyer_details, requested,
         "order_items": order_items,
         "total_amount": total_amount,
         "payment": {
-            "status": "PAID",
+            "status": AUTHORIZED,
             "card_last4": authorization["card_last4"],
             "transaction_ref": authorization["intent_id"],
         },
@@ -264,3 +293,13 @@ def get_order_summary_service(confirmation_number, user_id):
 def get_user_orders_service(user_id):
     """Returns all orders for the given user, newest first."""
     return get_orders_by_user_id(user_id)
+
+
+def get_seller_sales_service(seller_id):
+    """Returns the seller's sold items (newest first) plus totals for the Sales History tab."""
+    sales = get_sales_by_seller_id(seller_id)
+    return {
+        "sales": sales,
+        "total_items": sum(s["quantity"] for s in sales),
+        "total_amount": round(sum(s["amount"] for s in sales), 2),
+    }

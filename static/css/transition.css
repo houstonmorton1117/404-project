@@ -1,0 +1,128 @@
+/*
+  Curtain-reveal / spotlight page transition - added 11/14/26
+  Extends the welcome page's spotlight look into a short transition between pages.
+
+  How it works:
+  - Two navy velvet curtain panels are drawn with html::before (left) and html::after (right),
+    so they exist as soon as this stylesheet loads, before the page paints. No extra markup.
+  - ENTER (every page load): the curtains start closed, a spotlight glows at the seam,
+    then they part and slide off-screen. This is pure CSS, so if JavaScript fails the
+    curtains still open - they can never get stuck closed.
+  - LEAVE (clicking an internal link): static/js/transition.js adds .st-curtain-leave to
+    <html>, the curtains close (~0.4s), then the browser navigates.
+  - Users who prefer reduced motion never see the curtains.
+
+  Every page links this file and static/js/transition.js in its <head>.
+*/
+
+:root {
+  --st-curtain-open: 760ms;
+  --st-curtain-close: 380ms;
+  --st-curtain-ease: cubic-bezier(0.77, 0, 0.18, 1);
+
+  /* Velvet folds: repeating light/dark navy bands. */
+  --st-curtain-folds: repeating-linear-gradient(90deg,
+      #081020 0px, #122344 14px, #1c3561 26px, #13264a 38px, #0a142a 52px, #081020 60px);
+  /* Soft top-to-bottom shading so the drape has depth. */
+  --st-curtain-shade: linear-gradient(180deg,
+      rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 18%, rgba(0, 0, 0, 0) 78%, rgba(0, 0, 0, 0.55) 100%);
+  /* Gold bulb fringe along the bottom hem, like the theme's marquee lights. */
+  --st-curtain-fringe: radial-gradient(circle, rgba(232, 202, 124, 0.9) 2px, transparent 2.6px);
+}
+
+html::before,
+html::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 50.5vw;               /* slight overlap so no gap shows at the seam */
+  z-index: 2147483000;         /* above every modal and toast on the site */
+  pointer-events: none;
+  background-repeat: no-repeat, no-repeat, repeat-x, no-repeat, repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, 16px 10px, 100% 100%, auto, 100% 100%;
+  background-position: 0 0, 0 0, 0 calc(100% - 6px), 0 0, 0 0, 0 0;
+  will-change: transform;
+  animation-duration: var(--st-curtain-open);
+  animation-timing-function: var(--st-curtain-ease);
+  animation-delay: 140ms;      /* a beat of spotlight on the closed curtain */
+  animation-fill-mode: both;
+}
+
+/* Left panel: spotlight pools at the right (inner) edge, gold trim on the seam. */
+html::before {
+  left: 0;
+  background-image:
+    radial-gradient(ellipse 85% 55% at 100% 42%, rgba(255, 244, 214, 0.34), rgba(255, 244, 214, 0) 70%),
+    linear-gradient(90deg, rgba(206, 176, 78, 0) 97%, rgba(206, 176, 78, 0.85) 99.3%, #e8ca7c 100%),
+    var(--st-curtain-fringe),
+    var(--st-curtain-shade),
+    var(--st-curtain-folds),
+    linear-gradient(#0d1a33, #0d1a33);
+  box-shadow: 18px 0 40px rgba(0, 0, 0, 0.55);
+  transform-origin: left center;
+  animation-name: st-curtain-open-left;
+}
+
+/* Right panel: mirror image of the left. */
+html::after {
+  right: 0;
+  background-image:
+    radial-gradient(ellipse 85% 55% at 0% 42%, rgba(255, 244, 214, 0.34), rgba(255, 244, 214, 0) 70%),
+    linear-gradient(270deg, rgba(206, 176, 78, 0) 97%, rgba(206, 176, 78, 0.85) 99.3%, #e8ca7c 100%),
+    var(--st-curtain-fringe),
+    var(--st-curtain-shade),
+    var(--st-curtain-folds),
+    linear-gradient(#0d1a33, #0d1a33);
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
+  transform-origin: right center;
+  animation-name: st-curtain-open-right;
+}
+
+/* Opening: the drape gathers slightly as it pulls away, then hides once off-screen. */
+@keyframes st-curtain-open-left {
+  0%   { transform: translateX(0) scaleX(1); visibility: visible; }
+  100% { transform: translateX(-104%) scaleX(0.82); visibility: hidden; }
+}
+
+@keyframes st-curtain-open-right {
+  0%   { transform: translateX(0) scaleX(1); visibility: visible; }
+  100% { transform: translateX(104%) scaleX(0.82); visibility: hidden; }
+}
+
+/* Leaving: curtains swing shut, and block clicks so a link can't be pressed twice. */
+html.st-curtain-leave::before,
+html.st-curtain-leave::after {
+  pointer-events: auto;
+  animation-duration: var(--st-curtain-close);
+  animation-delay: 0ms;
+}
+
+html.st-curtain-leave::before { animation-name: st-curtain-close-left; }
+html.st-curtain-leave::after  { animation-name: st-curtain-close-right; }
+
+@keyframes st-curtain-close-left {
+  0%   { transform: translateX(-104%) scaleX(0.82); visibility: visible; }
+  100% { transform: translateX(0) scaleX(1); visibility: visible; }
+}
+
+@keyframes st-curtain-close-right {
+  0%   { transform: translateX(104%) scaleX(0.82); visibility: visible; }
+  100% { transform: translateX(0) scaleX(1); visibility: visible; }
+}
+
+/* Respect the OS "reduce motion" setting: no curtains at all. */
+@media (prefers-reduced-motion: reduce) {
+  html::before,
+  html::after {
+    display: none;
+  }
+}
+
+/* Never print the curtains. */
+@media print {
+  html::before,
+  html::after {
+    display: none;
+  }
+}
