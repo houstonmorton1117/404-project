@@ -9,6 +9,7 @@
     Updated by Day Ekoi - Iteration 5 - 4/20/26 - drag-drop zones, image preview thumbnails, preview_image_1-4 upload support
 
     Updated by Jasmine Mark - 10/27/26
+    Review S3 image upload path- Rochele SOlmon
 */
 
 const form = document.getElementById("storefrontForm");

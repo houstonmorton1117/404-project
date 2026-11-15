@@ -3,6 +3,7 @@
 # Created by Day Ekoi - Iteration 3
 # Updated by Day Ekoi - Iteration 4 3/25/26
 # Updated by Day Ekoi - Iteration 5 - 4/20/26 - added edit storefront route, create listing route, S3 image upload endpoint, fixed session key
+#Updated by rochele solmon 11/13/2026
 
 #updated by jasmine mark 11/14/26 - Hide stores whose owner has been deactivated (admins can still see them)
 
@@ -19,7 +20,7 @@ Functions:
 - call service functions
 - return JSON responses
 """
-
+from PIL import Image
 from flask import Blueprint, request, jsonify, render_template, session
 from utils.auth_utils import get_current_user
 from services.storefront_service import (
@@ -253,22 +254,64 @@ def edit_listing_page(listing_id):
         return redirect(url_for("auth.login"))
     return render_template("edit_listing.html", listing_id=listing_id)
 
-# Added by Day E 4/16/26 - handles image uploads to S3 for storefront creation
+# Reviewed by Rochele - secure local and S3 image uploads
 @storefront_bp.post("/upload-image")
 def upload_storefront_image():
     from utils.s3 import upload_image_to_s3
 
+    # Require login
+    current_user = get_current_user()
+    if current_user is None:
+        return jsonify({"error": "Login required"}), 401
+
+    # Check that a file was selected
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
+
+    if not file or not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    # Only allow approved upload folders
+    allowed_folders = {"storefronts", "listings"}
     folder = request.form.get("folder", "storefronts")
 
-    if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-        return jsonify({"error": "Invalid file type"}), 400
+    if folder not in allowed_folders:
+        return jsonify({"error": "Invalid upload folder"}), 400
 
+    # Verify actual image contents
+    allowed_formats = {
+        "PNG": {"png"},
+        "JPEG": {"jpg", "jpeg"},
+        "GIF": {"gif"},
+        "WEBP": {"webp"}
+    }
+
+    try:
+        extension = file.filename.rsplit(".", 1)[-1].lower()
+
+        file.seek(0)
+        image = Image.open(file.stream)
+        actual_format = image.format
+        image.verify()
+
+        if actual_format not in allowed_formats:
+            return jsonify({"error": "Invalid image content"}), 400
+
+        if extension not in allowed_formats[actual_format]:
+            return jsonify({"error": "File extension does not match image content"}), 400
+
+        file.seek(0)
+
+    except Exception:
+        return jsonify({"error": "Invalid or corrupted image"}), 400
+
+    # Use existing S3/local fallback functionality
     url = upload_image_to_s3(file, folder=folder)
+
     if not url:
         return jsonify({"error": "Upload failed"}), 500
 
     return jsonify({"url": url}), 200
+
