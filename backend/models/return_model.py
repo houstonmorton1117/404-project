@@ -80,29 +80,13 @@ def get_all_returns(include_deleted=False):
     return results
 
 
-def update_return_status(return_id, status):
-    conn = get_connection()
-    cur = conn.cursor()
+_RETURN_COLUMNS = """id, user_id, order_number, reason, has_damage, damage_image_url,
+                  status, created_at, updated_at, is_deleted"""
 
-    query = """
-        UPDATE returns
-        SET status = %s,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s
-        RETURNING id, user_id, order_number, reason, has_damage, damage_image_url,
-                  status, created_at, updated_at, is_deleted;
-    """
 
-    cur.execute(query, (status, return_id))
-    row = cur.fetchone()
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
+def _return_row(row):
     if not row:
         return None
-
     return {
         "id": row[0],
         "user_id": row[1],
@@ -115,3 +99,46 @@ def update_return_status(return_id, status):
         "updated_at": row[8],
         "is_deleted": row[9],
     }
+
+
+def get_return_by_id(return_id, conn, for_update=False):
+    """Reads one return on the caller's connection. With for_update=True the row stays locked
+    until the caller commits, so two admins can't approve (and refund) the same return at once.
+    Added 11/14/26."""
+    lock = " FOR UPDATE" if for_update else ""
+    cur = conn.cursor()
+    try:
+        cur.execute(f"SELECT {_RETURN_COLUMNS} FROM returns WHERE id = %s AND is_deleted = FALSE{lock};",
+                    (return_id,))
+        return _return_row(cur.fetchone())
+    finally:
+        cur.close()
+
+
+def update_return_status(return_id, status, conn=None):
+    """Sets a return's status. Pass `conn` to make it part of the caller's transaction (the caller
+    then commits); without it, the change is committed right away. `conn` added 11/14/26."""
+    own_conn = conn is None
+    if own_conn:
+        conn = get_connection()
+    cur = conn.cursor()
+
+    query = f"""
+        UPDATE returns
+        SET status = %s,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+        RETURNING {_RETURN_COLUMNS};
+    """
+
+    try:
+        cur.execute(query, (status, return_id))
+        row = cur.fetchone()
+        if own_conn:
+            conn.commit()
+    finally:
+        cur.close()
+        if own_conn:
+            conn.close()
+
+    return _return_row(row)

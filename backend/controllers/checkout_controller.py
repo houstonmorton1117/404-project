@@ -2,10 +2,14 @@
 # CSC 405 Sp 26'
 # Updated by Saffie Cherif - 10/1/26 - API-only blueprint
 # Updated by Jasmine Mark 10/25/26 - corrected error handling
+# Updated 11/14/26 - 3-D Secure: when the buyer's bank wants verification, /checkout/complete
+#   answers {"requires_action": true, "client_secret": ...}; the page shows the bank's pop-up and
+#   then calls /checkout/complete again with "payment_intent_id" to finish the order.
 
 from flask import Blueprint, request, jsonify, session
 
 from models.checkout_model import OutOfStockError
+from utils.payments import PaymentActionRequired
 from services.checkout_service import (
     CheckoutError,
     complete_transaction_from_session,
@@ -38,6 +42,14 @@ def complete_checkout():
             "order_id": result["order"]["id"],
             "total_amount": result["total_amount"],
             "payment": result["payment"],
+        }), 200
+    except PaymentActionRequired as e:
+        # Not an error: the bank wants the buyer to verify. Nothing was saved and the cart is kept.
+        # The client secret only lets the browser finish this one payment; it can't charge anything else.
+        return jsonify({
+            "requires_action": True,
+            "client_secret": e.client_secret,
+            "payment_intent_id": e.intent_id,
         }), 200
     except (CheckoutError, OutOfStockError) as e:
         return jsonify({"error": str(e)}), 400

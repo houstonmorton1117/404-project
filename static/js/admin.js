@@ -222,10 +222,18 @@ async function loadReturns() {
         select.dataset.returnId = item.id;
 
         // Added by Rochele Solmon: build options safely without HTML interpolation.
-        ["pending", "reviewed", "resolved"].forEach(status => {
+        // Updated 11/14/26: "Approved" refunds the buyer's order through Stripe when saved.
+        const returnStatuses = [
+            ["pending", "Pending"],
+            ["reviewed", "Reviewed"],
+            ["approved", "Approved (refunds buyer)"],
+            ["rejected", "Rejected"],
+            ["resolved", "Resolved"],
+        ];
+        returnStatuses.forEach(([status, label]) => {
             const option = document.createElement("option");
             option.value = status;
-            option.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            option.textContent = label;
             option.selected = item.status === status;
             select.appendChild(option);
         });
@@ -252,6 +260,11 @@ async function saveReturnStatus(returnId) {
 
     if (!select) return;
 
+    if (select.value === "approved"
+        && !confirm("Approving this return refunds the buyer's whole order through Stripe. Continue?")) {
+        return;
+    }
+
     const response = await fetch(`/admin/returns/${encodeURIComponent(returnId)}`, {
         method: "PATCH",
         headers: {
@@ -263,9 +276,18 @@ async function saveReturnStatus(returnId) {
         body: JSON.stringify({ status: select.value })
     });
 
+    const result = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-        alert("Failed to update return status.");
+        // Show the server's reason (e.g. the order wasn't found or Stripe refused the refund).
+        alert(result.error || "Failed to update return status.");
+        loadReturns();
         return;
+    }
+
+    if (result.refund && result.refund.status === "refunded") {
+        alert(`Return approved. Refunded $${Number(result.refund.amount).toFixed(2)} `
+            + `for order ${result.refund.confirmation_number}.`);
     }
 
     loadReturns();

@@ -15,6 +15,7 @@ from controllers.return_controller import returns_bp
 from controllers.checkout_controller import checkout_bp
 from controllers.notification_controller import notification_bp
 from controllers.follow_controller import follow_bp
+from controllers.stripe_webhook_controller import stripe_webhook_bp  # Added 11/14/26 - Stripe webhook
 from init_db import create_vault_tables
 from utils.payments import get_publishable_key
 from backend.listing_search import listing_search
@@ -103,6 +104,9 @@ def create_app():
     app.register_blueprint(notification_bp)
     app.register_blueprint(follow_bp)
     app.register_blueprint(listing_search)
+    # Stripe can't send our CSRF token; webhook requests are verified by Stripe's signature instead.
+    app.register_blueprint(stripe_webhook_bp)
+    csrf.exempt(stripe_webhook_bp)
 
     @app.get("/health")
     def health():

@@ -10,9 +10,9 @@ from models.admin_model import (
     get_admin_storefronts,
     delete_storefront,
     get_admin_returns,
-    update_admin_return_status,
 )
 from services.notification_service import notify_user
+from services.return_service import change_return_status
 
 
 def fetch_users():
@@ -67,22 +67,29 @@ def fetch_returns():
 
 
 def update_return_status_service(return_id, status):
+    # Updated 11/14/26 - goes through return_service.change_return_status, which checks the status
+    # and, when a return is approved, refunds the order through Stripe first. Problems are raised
+    # as ValueError (ReturnError) so the route answers 400 with the message for the admin.
     if not return_id:
         raise ValueError("Return ID required")
-    updated = update_admin_return_status(return_id, status)
-    if updated is None:
-        raise ValueError("Return not found")
+    result = change_return_status(return_id, status)
+    updated = result["return"]
+    refund = result["refund"]
+
+    if refund and refund.get("status") == "already_approved":
+        # Saving "approved" again changes nothing, so don't notify the buyer a second time.
+        return {**updated, "refund": refund}
+
+    message = f"Your return for order {updated['order_number']} is now {updated['status']}."
+    if refund and refund.get("status") == "refunded":
+        message = (f"Your return for order {updated['order_number']} was approved and "
+                   f"${refund['amount']:.2f} was refunded to your card.")
 
     # Best-effort: let the buyer know their return moved, but don't fail the
     # admin action if the notification can't be written.
     try:
-        notify_user(
-            updated["user_id"],
-            "return",
-            f"Your return for order {updated['order_number']} is now {updated['status']}.",
-            link="/account",
-        )
+        notify_user(updated["user_id"], "return", message, link="/account")
     except Exception as e:
         print(f"[admin] return status notification failed: {e}")
 
-    return updated
+    return {**updated, "refund": refund}
