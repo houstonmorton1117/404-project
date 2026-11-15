@@ -3,6 +3,8 @@
 # Created by Day Ekoi - Iteration 3
 # Updated by Day Ekoi - Iteration 5 - 4/10/26 -4/20/26 - added preview_image_1-4 to all queries, added item_count via JOIN, fixed contact_info column
 
+# Updated by Jasmine Mark 11/14/26 - added admin queries for storefronts, and storefronts now only show if the owner is active.
+
 """
 models/storefront_model.py
 
@@ -78,11 +80,13 @@ def get_storefront_by_id(storefront_id):
                s.banner_url, s.contact_info,
                s.preview_image_1, s.preview_image_2, s.preview_image_3, s.preview_image_4,
                s.categories, s.is_active, s.created_at, s.updated_at,
-               COUNT(l.id) AS item_count
+               COUNT(l.id) AS item_count,
+               u.is_active AS owner_is_active
         FROM storefronts s
+        JOIN users u ON u.id = s.owner_id
         LEFT JOIN listings l ON l.storefront_id = s.id AND l.status NOT IN ('DELETED', 'INACTIVE')
         WHERE s.id = %s
-        GROUP BY s.id;
+        GROUP BY s.id, u.is_active;
     """
 
     cur.execute(query, (storefront_id,))
@@ -111,6 +115,7 @@ def get_storefront_by_id(storefront_id):
         "created_at": row[13],
         "updated_at": row[14],
         "item_count": row[15],
+        "owner_is_active": row[16],
     }
 
 
@@ -333,9 +338,11 @@ def get_active_storefronts():
                s.preview_image_1, s.preview_image_2, s.preview_image_3, s.preview_image_4,
                s.categories, s.is_active, s.created_at, s.updated_at,
                COUNT(l.id) AS item_count
-        FROM storefronts s
+                FROM storefronts s
+        JOIN users u ON u.id = s.owner_id
         LEFT JOIN listings l ON l.storefront_id = s.id AND l.status NOT IN ('DELETED', 'INACTIVE')
         WHERE s.is_active = TRUE
+          AND u.is_active = TRUE
         GROUP BY s.id
         ORDER BY s.created_at DESC;
     """
